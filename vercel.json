@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/india/history.js": {
+      "maxDuration": 30
+    },
+    "api/india/quotes.js": {
+      "maxDuration": 15
+    }
+  }
+}

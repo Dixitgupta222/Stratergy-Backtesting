@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const API = '/api/india'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API = API_BASE ? `${API_BASE}/api/india` : '/api/india'
 const HISTORY_TIMEOUT_MS = 25000
 
 const historyCache = new Map()
@@ -56,11 +57,22 @@ export async function fetchIndiaHistory(symbol, interval = '1d', onProgress, { s
     if (axios.isCancel(e) || e.code === 'ERR_CANCELED') throw e
     const msg = e.response?.data?.detail
     if (typeof msg === 'string' && msg) throw new Error(msg)
+    if (e.response?.status === 404 && typeof e.response?.data !== 'object') {
+      throw new Error('India API not found. Redeploy with Vercel serverless /api routes enabled.')
+    }
     if (e.code === 'ECONNABORTED') {
-      throw new Error('India data request timed out. Check npm run api is running.')
+      throw new Error(
+        import.meta.env.PROD
+          ? 'India data request timed out. Try again in a moment.'
+          : 'India data request timed out. Check npm run api is running.'
+      )
     }
     if (e.code === 'ERR_NETWORK' || e.code === 'ECONNREFUSED') {
-      throw new Error('India market API offline. Run: npm run api')
+      throw new Error(
+        import.meta.env.PROD
+          ? 'Could not reach India market API.'
+          : 'India market API offline. Run: npm run api'
+      )
     }
     throw new Error(e.message || 'Failed to load India market data')
   }
