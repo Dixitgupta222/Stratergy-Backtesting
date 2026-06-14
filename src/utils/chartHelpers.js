@@ -23,4 +23,9 @@ export function tfToSeconds(tf) {
   return 60
 }
 
+export function getCandleOpenTime(epochSec, timeframe) {
+  const intervalSec = tfToSeconds(timeframe)
+  return Math.floor(epochSec / intervalSec) * intervalSec
+}
+
 export const SUB_PANE_HEIGHT = 90

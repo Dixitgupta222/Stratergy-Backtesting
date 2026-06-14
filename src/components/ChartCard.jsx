@@ -8,7 +8,7 @@ import {
   scrollToLiveOnReset
 } from '../utils/symbolType'
 import { formatHistoryRange } from '../utils/backtestConfig'
-import { getChartDisplayData, getReplayChartData } from '../utils/chartData'
+import { getChartDisplayData, getReplayChartData, getLinkedReplayChartData, shouldUseLinkedFormingCandle } from '../utils/chartData'
 import { sma, ema, rsi, macd, bollingerBands } from '../utils/indicators'
 import { applyVisibleDateRange, SUB_PANE_HEIGHT } from '../utils/chartHelpers'
 import {
@@ -57,6 +57,8 @@ export default function ChartCard({
   syncReplay,
   linkedReplayActive = false,
   linkedReplayPickMode = false,
+  linkedReplayLeaderId = null,
+  getLeaderReplayApi = null,
   showReplayToolbar = true,
   onEnterLinkedReplay,
   onLinkedReplayPick,
@@ -84,7 +86,17 @@ export default function ChartCard({
   const macdChartRef = useRef()
   const candleSeriesRef = useRef()
   const overlaySeriesRef = useRef([])
-  const replayRef = useRef({ index: 0, timer: null, speedSec: DEFAULT_REPLAY_SPEED_SEC, startIndex: 1, endIndex: 1 })
+  const lastDisplayRef = useRef([])
+  const formingBucketRef = useRef(null)
+  const replayRef = useRef({
+    index: 0,
+    timer: null,
+    speedSec: DEFAULT_REPLAY_SPEED_SEC,
+    startIndex: 1,
+    endIndex: 1,
+    targetTime: null,
+    leaderFrame: null
+  })
   const replayPickModeRef = useRef(false)
   const candleDataRef = useRef([])
   const lastCandleRef = useRef(null)
@@ -95,6 +107,8 @@ export default function ChartCard({
 
   const [symbol, setSymbol] = useState(sharedSymbol || 'BTCUSDT')
   const [timeframe, setTimeframe] = useState(sharedTimeframe || '1m')
+  const timeframeRef = useRef(timeframe)
+  timeframeRef.current = timeframe
   const symbolMarket = useMemo(() => detectSymbolMarket(symbol), [symbol])
   const [indicators, setIndicators] = useState([])
   const [replayMode, setReplayMode] = useState(false)
@@ -179,14 +193,43 @@ export default function ChartCard({
     })
   }, [scheduleViewSync])
 
-  const getVisibleChartData = useCallback((endIndex = null, replayStartIndex = null) => {
+  const getVisibleChartData = useCallback((endIndex = null, replayStartIndex = null, targetTime = null) => {
     const data = candleDataRef.current
-    if (endIndex != null && replayStartIndex != null) {
-      return getReplayChartData(data, replayStartIndex, endIndex)
+    const tt = targetTime ?? replayRef.current.targetTime
+    const replayStart = replayStartIndex ?? (endIndex != null ? replayRef.current.startIndex : null)
+
+    // Linked HTF follower: always synthesize forming bar from leader's finer candles
+    const isLinkedFollower = linkedReplayLeaderId != null && id !== linkedReplayLeaderId
+    const leaderApi = isLinkedFollower ? getLeaderReplayApi?.() : null
+    const leaderTf = leaderApi?.getTimeframe?.()
+
+    if (
+      isLinkedFollower
+      && leaderApi
+      && tt != null
+      && replayStart != null
+      && shouldUseLinkedFormingCandle(timeframe, leaderTf)
+    ) {
+      const ltfData = leaderApi.getCandleData?.() || []
+      const leaderRevealIndex = leaderApi.getCurrentIndex?.() ?? 0
+      const leaderStartIndex = leaderApi.getStartIndex?.() ?? 1
+      return getLinkedReplayChartData(
+        data,
+        timeframe,
+        ltfData,
+        leaderRevealIndex,
+        leaderStartIndex,
+        tt,
+        replayStart
+      )
+    }
+
+    if (endIndex != null && replayStart != null) {
+      return getReplayChartData(data, replayStart, endIndex)
     }
     if (endIndex != null) return getChartDisplayData(data, endIndex)
     return getChartDisplayData(data)
-  }, [])
+  }, [linkedReplayLeaderId, id, getLeaderReplayApi, timeframe])
 
   const syncLastCandleFromDisplay = useCallback((display) => {
     if (!display?.length) return
@@ -339,19 +382,39 @@ export default function ChartCard({
     }
   }, [indicators, clearOverlaySeries])
 
-  const refreshChartDisplay = useCallback((endIndex = null, { followHead = false } = {}) => {
+  const refreshChartDisplay = useCallback((endIndex = null, { followHead = false, targetTime = null } = {}) => {
     const data = candleDataRef.current
     if (!candleSeriesRef.current || !data.length) return []
     const replayStart = endIndex != null ? replayRef.current.startIndex : null
-    const display = getVisibleChartData(endIndex, replayStart)
+    const tt = targetTime ?? replayRef.current.targetTime
+    const display = getVisibleChartData(endIndex, replayStart, tt)
     if (!display.length) return []
-    candleSeriesRef.current.setData(display)
+
+    const leaderTf = getLeaderReplayApi?.()?.getTimeframe?.()
+    const isLinkedHtfFollower = linkedReplayLeaderId != null
+      && id !== linkedReplayLeaderId
+      && shouldUseLinkedFormingCandle(timeframe, leaderTf)
+
+    const nextLast = display[display.length - 1]
+    const bucket = isLinkedHtfFollower
+      ? getCandleOpenTime(nextLast.time, timeframe)
+      : null
+
+    if (isLinkedHtfFollower && formingBucketRef.current != null && bucket === formingBucketRef.current) {
+      candleSeriesRef.current.update(nextLast)
+      scheduleViewSync()
+    } else {
+      candleSeriesRef.current.setData(display)
+      formingBucketRef.current = bucket
+    }
+    lastDisplayRef.current = display
+
     syncLastCandleFromDisplay(display)
     if (followHead && chartRef.current) {
       followReplayHead(chartRef.current, display.length - 1)
     }
     return display
-  }, [getVisibleChartData, syncLastCandleFromDisplay])
+  }, [getVisibleChartData, syncLastCandleFromDisplay, linkedReplayLeaderId, id, getLeaderReplayApi, timeframe, scheduleViewSync])
 
   // Initialize main chart — chartHostRef must be empty (no React children inside)
   useEffect(() => {
@@ -572,7 +635,7 @@ export default function ChartCard({
     if (!candleDataRef.current.length || !chartRef.current || !indicators.length) return
     const replayEnd = replayMode ? Math.max(1, replayRef.current.index) : null
     const replayStart = replayMode ? replayRef.current.startIndex : null
-    const display = getVisibleChartData(replayEnd, replayStart)
+    const display = getVisibleChartData(replayEnd, replayStart, replayRef.current.targetTime)
     if (display.length) applyIndicators(display)
   }, [indicators, applyIndicators, dataVersion, replayMode, getVisibleChartData])
 
@@ -628,7 +691,9 @@ export default function ChartCard({
     const { startIndex, endIndex } = replayRef.current
     const idx = indexFromWindowProgress(pct, startIndex, endIndex)
     replayRef.current.index = idx
-    const display = refreshChartDisplay(idx, { followHead })
+    const barIdx = Math.max(0, Math.min(data.length - 1, idx - 1))
+    replayRef.current.targetTime = data[barIdx]?.time ?? null
+    const display = refreshChartDisplay(idx, { followHead, targetTime: replayRef.current.targetTime })
     if (display.length) {
       setReplayCurrentLabel(formatReplayTime(display[display.length - 1].time))
     }
@@ -636,14 +701,16 @@ export default function ChartCard({
     return display
   }, [refreshChartDisplay])
 
-  const applyReplayAtTime = useCallback((targetTime, { followHead = false } = {}) => {
+  const applyReplayAtTime = useCallback((targetTime, { followHead = false, leaderFrame = null } = {}) => {
     const data = candleDataRef.current
     if (!data.length || targetTime == null) return
     const { startIndex, endIndex } = replayRef.current
     const idx = findEndIndexUntilTime(data, targetTime)
     const clamped = Math.max(startIndex, Math.min(endIndex, idx))
     replayRef.current.index = clamped
-    const display = refreshChartDisplay(clamped, { followHead })
+    replayRef.current.targetTime = targetTime
+    if (leaderFrame) replayRef.current.leaderFrame = leaderFrame
+    const display = refreshChartDisplay(clamped, { followHead, targetTime })
     if (display.length) {
       setReplayCurrentLabel(formatReplayTime(display[display.length - 1].time))
     }
@@ -655,7 +722,11 @@ export default function ChartCard({
     if (!chartRef.current) return
     const inReplay = replayMode && !replayPickMode
     const replayIdx = inReplay ? replayRef.current.index : null
-    const display = getVisibleChartData(replayIdx, inReplay ? replayRef.current.startIndex : null)
+    const display = getVisibleChartData(
+      replayIdx,
+      inReplay ? replayRef.current.startIndex : null,
+      replayRef.current.targetTime
+    )
     resetChartView(chartRef.current, {
       scrollToLive: !replayMode && scrollToLiveOnReset(symbolMarket),
       focusBarIndex: inReplay && display.length ? display.length - 1 : null
@@ -702,6 +773,10 @@ export default function ChartCard({
     replayRef.current.index = 0
     replayRef.current.startIndex = 1
     replayRef.current.endIndex = 1
+    replayRef.current.targetTime = null
+    replayRef.current.leaderFrame = null
+    lastDisplayRef.current = []
+    formingBucketRef.current = null
     refreshChartDisplay()
     if (chartRef.current) {
       resetChartView(chartRef.current, { scrollToLive: scrollToLiveOnReset(symbolMarket) })
@@ -710,7 +785,7 @@ export default function ChartCard({
     if (notifyLinked && linkedReplayActive && onLinkedReplayExit) onLinkedReplayExit()
   }, [pauseReplayLocal, refreshChartDisplay, symbolMarket, linkedReplayActive, onLinkedReplayExit])
 
-  const confirmReplayStartAt = useCallback((time) => {
+  const confirmReplayStartAt = useCallback((time, leaderFrame = null) => {
     const data = candleDataRef.current
     if (!data.length) return
     const startIndex = findEndIndexUntilTime(data, time)
@@ -719,14 +794,22 @@ export default function ChartCard({
     replayRef.current.startIndex = startIndex
     replayRef.current.endIndex = endIndex
     replayRef.current.index = startIndex
+    replayRef.current.targetTime = time
+    if (leaderFrame) replayRef.current.leaderFrame = leaderFrame
+    lastDisplayRef.current = []
+    formingBucketRef.current = null
     replayPickModeRef.current = false
     setReplayPickMode(false)
     setReplayPlaying(false)
-    const display = applyReplayFrame(0)
+    const display = refreshChartDisplay(startIndex, { targetTime: time })
     if (display?.length && chartRef.current) {
       resetChartView(chartRef.current, { focusBarIndex: display.length - 1 })
     }
-  }, [applyReplayFrame])
+    setReplayProgress(windowProgressFromIndex(startIndex, startIndex, endIndex))
+    if (display?.length) {
+      setReplayCurrentLabel(formatReplayTime(display[display.length - 1].time))
+    }
+  }, [refreshChartDisplay])
 
   const enterReplayPickMode = useCallback(() => {
     pauseReplayLocal()
@@ -892,14 +975,20 @@ export default function ChartCard({
     getEndTime: () => {
       const data = candleDataRef.current
       return data.length ? data[data.length - 1].time : null
-    }
+    },
+    getTimeframe: () => timeframeRef.current,
+    getCandleData: () => candleDataRef.current
   }
 
   useEffect(() => {
     if (!registerReplay) return
     registerReplay(id, replayApiRef.current)
+  })
+
+  useEffect(() => {
+    if (!registerReplay) return
     return () => registerReplay(id, null)
-  }, [registerReplay, id, symbolMarket, isLoading, historyLabel])
+  }, [registerReplay, id])
 
   // Exit replay when symbol/timeframe/asset changes
   useEffect(() => {

@@ -70,6 +70,20 @@ export default function ChartGrid({
   }, [forEachReplay])
 
   const applyLinkedTime = useCallback((time, { followHead = false } = {}) => {
+    const state = linkedReplayRef.current
+    if (state?.active && state.leaderId != null) {
+      const leader = replayRegistry.current.get(state.leaderId)
+      leader?.applyAtTime?.(time, { followHead })
+      const leaderFrame = {
+        leaderRevealIndex: leader?.getCurrentIndex?.() ?? 0,
+        leaderStartIndex: leader?.getStartIndex?.() ?? 1
+      }
+      replayRegistry.current.forEach((api, chartId) => {
+        if (chartId === state.leaderId) return
+        api.applyAtTime?.(time, { followHead, leaderFrame })
+      })
+      return
+    }
     forEachReplay((api) => api.applyAtTime?.(time, { followHead }))
   }, [forEachReplay])
 
@@ -136,9 +150,18 @@ export default function ChartGrid({
     const state = linkedReplayRef.current
     if (!state?.active || !state.pickMode || time == null) return
 
-    forEachReplay((api) => api.confirmStartAt?.(time))
+    const leaderId = state.leaderId
+    const leader = replayRegistry.current.get(leaderId) || replayRegistry.current.get(chartId)
+    leader?.confirmStartAt?.(time)
+    const leaderFrame = {
+      leaderRevealIndex: leader?.getCurrentIndex?.() ?? 0,
+      leaderStartIndex: leader?.getStartIndex?.() ?? 1
+    }
+    replayRegistry.current.forEach((api, id) => {
+      if (id === leaderId) return
+      api.confirmStartAt?.(time, leaderFrame)
+    })
 
-    const leader = replayRegistry.current.get(state.leaderId) || replayRegistry.current.get(chartId)
     const endTime = leader?.getEndTime?.() ?? time
 
     setLinkedReplay((s) => ({
@@ -319,6 +342,10 @@ export default function ChartGrid({
           syncReplay={syncReplay}
           linkedReplayActive={linkedReplayActive}
           linkedReplayPickMode={linkedReplayActive && !!linkedReplay?.pickMode}
+          linkedReplayLeaderId={linkedReplay?.leaderId ?? null}
+          getLeaderReplayApi={() => (
+            linkedReplay?.leaderId != null ? replayRegistry.current.get(linkedReplay.leaderId) : null
+          )}
           showReplayToolbar={!linkedReplayActive}
           onEnterLinkedReplay={startLinkedReplay}
           onLinkedReplayPick={handleLinkedPick}

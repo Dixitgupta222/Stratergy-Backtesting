@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { tfToSeconds } from '../utils/chartHelpers'
+import { tfToSeconds, getCandleOpenTime } from '../utils/chartHelpers'
 import { formatHMS, getMarketSession } from '../utils/marketHours'
 
-export { tfToSeconds } from '../utils/chartHelpers'
+export { tfToSeconds, getCandleOpenTime } from '../utils/chartHelpers'
 
 /** Format price to match chart axis precision */
 export function formatChartPrice(price) {
@@ -98,9 +98,4 @@ export default function CandleTimer({ timeframe = '1m', variant = 'default', mar
       </div>
     </div>
   )
-}
-
-export function getCandleOpenTime(epochSec, timeframe) {
-  const intervalSec = tfToSeconds(timeframe)
-  return Math.floor(epochSec / intervalSec) * intervalSec
 }
