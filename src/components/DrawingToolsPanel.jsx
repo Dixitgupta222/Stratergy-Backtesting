@@ -1,132 +1,80 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   MousePointer2,
   Eraser,
   TrendingUp,
   ArrowUpRight,
-  MoveHorizontal,
   Minus,
-  ArrowRight,
   SeparatorVertical,
-  Plus,
-  Square,
-  Circle,
   GitBranch,
+  Square,
   Type,
   Ruler,
-  ChevronDown,
-  ChevronRight,
   Trash2,
-  Pencil
+  TrendingDown,
+  Layers
 } from 'lucide-react'
-import { DRAWING_CATEGORIES } from '../utils/drawingTools'
 
-const TOOL_ICONS = {
-  cursor: MousePointer2,
-  eraser: Eraser,
-  trendline: TrendingUp,
-  ray: ArrowUpRight,
-  extended: MoveHorizontal,
-  hline: Minus,
-  hray: ArrowRight,
-  vline: SeparatorVertical,
-  cross: Plus,
-  parallel_channel: GitBranch,
-  rectangle: Square,
-  circle: Circle,
-  fibonacci: GitBranch,
-  fib_extension: GitBranch,
-  text: Type,
-  measure: Ruler
-}
+/** TradingView-style left toolbar — icon strip, primary tools always visible */
+export const TV_DRAWING_TOOLS = [
+  { id: 'cursor', label: 'Pointer', icon: MousePointer2, color: '#d1d4dc' },
+  { id: 'trendline', label: 'Trend Line', icon: TrendingUp, color: '#2962ff' },
+  { id: 'ray', label: 'Ray', icon: ArrowUpRight, color: '#2962ff' },
+  { id: 'hline', label: 'Horizontal Line', icon: Minus, color: '#f59e0b' },
+  { id: 'vline', label: 'Vertical Line', icon: SeparatorVertical, color: '#8b5cf6' },
+  { id: 'parallel_channel', label: 'Parallel Channel', icon: GitBranch, color: '#06b6d4' },
+  { id: 'fibonacci', label: 'Fib Retracement', icon: Layers, color: '#a78bfa' },
+  { id: 'long_position', label: 'Long Position', icon: TrendingUp, color: '#089981' },
+  { id: 'short_position', label: 'Short Position', icon: TrendingDown, color: '#f23645' },
+  { id: 'rectangle', label: 'Rectangle', icon: Square, color: '#22c55e' },
+  { id: 'text', label: 'Text', icon: Type, color: '#e2e8f0' },
+  { id: 'measure', label: 'Measure', icon: Ruler, color: '#38bdf8' },
+  { id: 'eraser', label: 'Eraser', icon: Eraser, color: '#ef4444' }
+]
 
 export default function DrawingToolsPanel({
-  open,
-  onToggle,
   activeTool,
   onSelectTool,
   onClear,
   drawingCount = 0,
   linked = false
 }) {
-  const [expanded, setExpanded] = useState(() =>
-    Object.fromEntries(DRAWING_CATEGORIES.map((c) => [c.id, true]))
-  )
-
-  const toggleCategory = (id) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
-
   return (
-    <div className={`drawing-tools-panel ${open ? 'open' : ''}`}>
-      <button
-        type="button"
-        className={`drawing-tools-toggle ${open ? 'active' : ''}`}
-        onClick={onToggle}
-        title="Drawing tools"
-      >
-        <Pencil size={16} />
-      </button>
+    <div className="tv-drawing-toolbar">
+      <div className="tv-drawing-toolbar-track">
+        {TV_DRAWING_TOOLS.map(({ id, label, icon: Icon, color }) => {
+          const isActive = activeTool === id
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`tv-drawing-tool-btn ${isActive ? 'active' : ''}`}
+              title={label}
+              aria-label={label}
+              onClick={() => onSelectTool(isActive && id !== 'cursor' ? 'cursor' : id)}
+            >
+              <Icon size={16} strokeWidth={2} style={{ color: isActive ? '#fff' : color }} />
+            </button>
+          )
+        })}
+      </div>
 
-      {open && (
-        <div className="drawing-tools-menu">
-          <div className="drawing-tools-header">
-            <span>
-              Drawing tools
-              {linked && <span className="drawing-tools-linked">Linked</span>}
-            </span>
-            {drawingCount > 0 && (
-              <button type="button" className="drawing-tools-clear" onClick={onClear} title="Clear all">
-                <Trash2 size={12} />
-                <span>{drawingCount}</span>
-              </button>
-            )}
-          </div>
-
-          <div className="drawing-tools-body">
-            {DRAWING_CATEGORIES.map((category) => (
-              <div key={category.id} className="drawing-tools-category">
-                <button
-                  type="button"
-                  className="drawing-tools-category-head"
-                  onClick={() => toggleCategory(category.id)}
-                >
-                  {expanded[category.id] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  <span>{category.label}</span>
-                </button>
-                {expanded[category.id] && (
-                  <div className="drawing-tools-list">
-                    {category.tools.map((tool) => {
-                      const Icon = TOOL_ICONS[tool.id] ?? TrendingUp
-                      const isActive = activeTool === tool.id
-                      return (
-                        <button
-                          key={tool.id}
-                          type="button"
-                          className={`drawing-tool-item ${isActive ? 'active' : ''}`}
-                          title={tool.label}
-                          onClick={() => onSelectTool(isActive ? 'cursor' : tool.id)}
-                        >
-                          <span className="drawing-tool-icon" style={{ color: tool.color }}>
-                            <Icon size={15} />
-                          </span>
-                          <span className="drawing-tool-label">{tool.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="drawing-tools-hint">
-            {activeTool === 'cursor' && 'Click drawings to select · Del to remove'}
-            {activeTool === 'eraser' && 'Click a drawing to erase it'}
-            {activeTool && !['cursor', 'eraser'].includes(activeTool) && 'Click on chart to place points'}
-          </div>
-        </div>
+      {drawingCount > 0 && (
+        <button type="button" className="tv-drawing-clear-btn" onClick={onClear} title="Clear all drawings">
+          <Trash2 size={14} />
+          <span>{drawingCount}</span>
+        </button>
       )}
+
+      {linked && <span className="tv-drawing-linked-badge">Linked</span>}
+
+      <div className="tv-drawing-hint">
+        {activeTool === 'cursor' && 'Select · Drag to move · Handles to resize'}
+        {activeTool === 'eraser' && 'Click drawing to delete'}
+        {activeTool === 'long_position' && 'Click entry, drag to set target & stop · then pointer'}
+        {activeTool === 'short_position' && 'Click entry, drag to set target & stop · then pointer'}
+        {activeTool && !['cursor', 'eraser', 'long_position', 'short_position'].includes(activeTool) && 'Click chart once to draw · returns to pointer'}
+      </div>
     </div>
   )
 }

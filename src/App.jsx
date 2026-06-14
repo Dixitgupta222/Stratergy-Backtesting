@@ -6,7 +6,7 @@ import { useWatchlist } from './hooks/useWatchlist'
 
 export default function App() {
   const [layoutId, setLayoutId] = useState('2h')
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [focusedChartId, setFocusedChartId] = useState(null)
 
   const [sharedSymbol, setSharedSymbol] = useState('BTCUSDT')

@@ -111,7 +111,6 @@ export default function ChartCard({
   const [priceDirection, setPriceDirection] = useState('neutral')
   const [drawTool, setDrawTool] = useState('cursor')
   const [localDrawings, setLocalDrawings] = useState([])
-  const [drawingPanelOpen, setDrawingPanelOpen] = useState(false)
   const [selectedDrawingId, setSelectedDrawingId] = useState(null)
 
   const drawings = syncDrawings ? (sharedDrawings ?? []) : localDrawings
@@ -131,13 +130,23 @@ export default function ChartCard({
   }, [setDrawings])
   const [loadKey, setLoadKey] = useState(0)
   const [dataVersion, setDataVersion] = useState(0)
+  const [viewSync, setViewSync] = useState(0)
   const [chartReady, setChartReady] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loadProgress, setLoadProgress] = useState(null)
   const [historyLabel, setHistoryLabel] = useState('')
   const overlayRef = useRef()
   const lastUiTickRef = useRef(0)
+  const viewSyncRafRef = useRef(null)
   const onReplayChartClickRef = useRef(null)
+
+  const scheduleViewSync = useCallback(() => {
+    if (viewSyncRafRef.current) return
+    viewSyncRafRef.current = requestAnimationFrame(() => {
+      viewSyncRafRef.current = null
+      setViewSync((v) => v + 1)
+    })
+  }, [])
 
   const ticker24h = watchlistTickers?.[symbol]
 
@@ -165,9 +174,10 @@ export default function ChartCard({
         overlayRef.current.style.top = `${y}px`
         overlayRef.current.style.width = `${Math.max(scaleWidth, 54)}px`
         overlayRef.current.classList.add('visible')
+        scheduleViewSync()
       } catch (e) { /* ignore */ }
     })
-  }, [])
+  }, [scheduleViewSync])
 
   const getVisibleChartData = useCallback((endIndex = null, replayStartIndex = null) => {
     const data = candleDataRef.current
@@ -207,6 +217,7 @@ export default function ChartCard({
 
     lastCandleRef.current = next
     candleSeriesRef.current.update(next)
+    scheduleViewSync()
 
     if (prev && prev.time !== next.time) {
       prevCloseRef.current = prev.close
@@ -236,7 +247,7 @@ export default function ChartCard({
         priceLineColor: dir === 'up' ? '#089981' : '#f23645'
       })
     }
-  }, [updatePriceOverlayPosition, getVisibleChartData])
+  }, [updatePriceOverlayPosition, getVisibleChartData, scheduleViewSync])
 
   const clearOverlaySeries = useCallback(() => {
     if (!chartRef.current) return
@@ -972,8 +983,6 @@ export default function ChartCard({
           <div ref={overlayLayerRef} className="chart-overlay-layer">
             {chartReady && !isLoading && (
               <DrawingToolsPanel
-                open={drawingPanelOpen}
-                onToggle={() => setDrawingPanelOpen((o) => !o)}
                 activeTool={drawTool}
                 onSelectTool={setDrawTool}
                 onClear={clearDrawings}
@@ -985,12 +994,17 @@ export default function ChartCard({
               chartRef={chartRef}
               seriesRef={candleSeriesRef}
               containerRef={overlayLayerRef}
+              eventRootRef={mainContainerRef}
               activeTool={drawTool}
               setActiveTool={setDrawTool}
               drawings={drawings}
               setDrawings={setDrawings}
               selectedId={selectedDrawingId}
               setSelectedId={setSelectedDrawingId}
+              dataVersion={dataVersion}
+              viewSync={viewSync}
+              lastBarTime={lastCandle?.time ?? null}
+              timeframe={timeframe}
             />
             <div
               ref={overlayRef}

@@ -47,6 +47,14 @@ export const DRAWING_CATEGORIES = [
     ]
   },
   {
+    id: 'positions',
+    label: 'Forecast / Measure',
+    tools: [
+      { id: 'long_position', label: 'Long Position', clicks: 0, position: 'long', dragCreate: true, color: '#089981' },
+      { id: 'short_position', label: 'Short Position', clicks: 0, position: 'short', dragCreate: true, color: '#f23645' }
+    ]
+  },
+  {
     id: 'annotation',
     label: 'Annotation',
     tools: [

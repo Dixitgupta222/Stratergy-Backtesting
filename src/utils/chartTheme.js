@@ -24,7 +24,7 @@ export function getChartOptions() {
       timeVisible: true,
       secondsVisible: false,
       shiftVisibleRangeOnNewBar: true,
-      rightOffset: 12,
+      rightOffset: 20,
       barSpacing: 8
     }
   }
