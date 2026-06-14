@@ -16,7 +16,8 @@ import {
   windowProgressFromIndex,
   indexFromWindowProgress,
   nextReplaySpeed,
-  DEFAULT_REPLAY_SPEED_SEC
+  DEFAULT_REPLAY_SPEED_SEC,
+  formatReplayTime
 } from '../utils/replayWindow'
 import { getChartOptions, CANDLE_OPTIONS } from '../utils/chartTheme'
 import CandleTimer, { formatChartPrice, getCandleOpenTime } from './CandleTimer'
@@ -36,13 +37,6 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 
 const CANDLE_OPTS = CANDLE_OPTIONS
 
-function formatReplayTime(ts) {
-  if (!ts) return '—'
-  return new Date(ts * 1000).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  })
-}
-
 export default function ChartCard({
   id,
   isSingle = false,
@@ -60,6 +54,14 @@ export default function ChartCard({
   syncTime,
   syncDateRange,
   syncDrawings,
+  syncReplay,
+  linkedReplayActive = false,
+  linkedReplayPickMode = false,
+  showReplayToolbar = true,
+  onEnterLinkedReplay,
+  onLinkedReplayPick,
+  onLinkedReplayExit,
+  registerReplay,
   sharedDrawings,
   setSharedDrawings,
   registerChart,
@@ -617,6 +619,21 @@ export default function ChartCard({
     return display
   }, [refreshChartDisplay])
 
+  const applyReplayAtTime = useCallback((targetTime, { followHead = false } = {}) => {
+    const data = candleDataRef.current
+    if (!data.length || targetTime == null) return
+    const { startIndex, endIndex } = replayRef.current
+    const idx = findEndIndexUntilTime(data, targetTime)
+    const clamped = Math.max(startIndex, Math.min(endIndex, idx))
+    replayRef.current.index = clamped
+    const display = refreshChartDisplay(clamped, { followHead })
+    if (display.length) {
+      setReplayCurrentLabel(formatReplayTime(display[display.length - 1].time))
+    }
+    setReplayProgress(windowProgressFromIndex(clamped, startIndex, endIndex))
+    return display
+  }, [refreshChartDisplay])
+
   const resetChartViewport = useCallback(() => {
     if (!chartRef.current) return
     const inReplay = replayMode && !replayPickMode
@@ -637,6 +654,7 @@ export default function ChartCard({
   }, [])
 
   const playReplayLocal = useCallback(() => {
+    if (linkedReplayActive) return
     const data = candleDataRef.current
     if (!data.length || replayPickModeRef.current) return
     const { startIndex, endIndex } = replayRef.current
@@ -654,9 +672,9 @@ export default function ChartCard({
       }
       applyReplayFrame(windowProgressFromIndex(nextIdx, start, end), { followHead: true })
     }, tickMs)
-  }, [applyReplayFrame, pauseReplayLocal])
+  }, [applyReplayFrame, pauseReplayLocal, linkedReplayActive])
 
-  const exitReplayLocal = useCallback(() => {
+  const exitReplayLocal = useCallback(({ notifyLinked = true } = {}) => {
     pauseReplayLocal()
     isReplayingRef.current = false
     replayPickModeRef.current = false
@@ -672,7 +690,8 @@ export default function ChartCard({
       resetChartView(chartRef.current, { scrollToLive: scrollToLiveOnReset(symbolMarket) })
     }
     setDataVersion((v) => v + 1)
-  }, [pauseReplayLocal, refreshChartDisplay, symbolMarket])
+    if (notifyLinked && linkedReplayActive && onLinkedReplayExit) onLinkedReplayExit()
+  }, [pauseReplayLocal, refreshChartDisplay, symbolMarket, linkedReplayActive, onLinkedReplayExit])
 
   const confirmReplayStartAt = useCallback((time) => {
     const data = candleDataRef.current
@@ -692,7 +711,41 @@ export default function ChartCard({
     }
   }, [applyReplayFrame])
 
+  const enterReplayPickMode = useCallback(() => {
+    pauseReplayLocal()
+    replayPickModeRef.current = true
+    setReplayPickMode(true)
+    refreshChartDisplay()
+  }, [pauseReplayLocal, refreshChartDisplay])
+
   const enterReplayMode = useCallback(() => {
+    if (!candleDataRef.current.length || !supportsBacktest(symbolMarket)) return
+    if (!candleSeriesRef.current || !chartRef.current) return
+    if (syncReplay && onEnterLinkedReplay) {
+      onEnterLinkedReplay(id)
+      return
+    }
+    if (liveConnRef.current) { liveConnRef.current.close(); liveConnRef.current = null }
+    const data = candleDataRef.current
+    isReplayingRef.current = true
+    replayRef.current.speedSec = replaySpeedSec
+    replayRef.current.endIndex = data.length
+    replayRef.current.startIndex = 1
+    replayRef.current.index = 1
+    setReplayMode(true)
+    setReplayPlaying(false)
+    setReplayProgress(0)
+    setReplayCurrentLabel('')
+    replayPickModeRef.current = true
+    setReplayPickMode(true)
+    refreshChartDisplay()
+  }, [symbolMarket, replaySpeedSec, refreshChartDisplay, syncReplay, onEnterLinkedReplay, id])
+
+  const handleReplayReselect = useCallback(() => {
+    enterReplayPickMode()
+  }, [enterReplayPickMode])
+
+  const enterReplayLocal = useCallback(() => {
     if (!candleDataRef.current.length || !supportsBacktest(symbolMarket)) return
     if (!candleSeriesRef.current || !chartRef.current) return
     if (liveConnRef.current) { liveConnRef.current.close(); liveConnRef.current = null }
@@ -710,13 +763,6 @@ export default function ChartCard({
     setReplayPickMode(true)
     refreshChartDisplay()
   }, [symbolMarket, replaySpeedSec, refreshChartDisplay])
-
-  const handleReplayReselect = useCallback(() => {
-    pauseReplayLocal()
-    replayPickModeRef.current = true
-    setReplayPickMode(true)
-    refreshChartDisplay()
-  }, [pauseReplayLocal, refreshChartDisplay])
 
   const exitReplayMode = useCallback(() => {
     exitReplayLocal()
@@ -797,10 +843,46 @@ export default function ChartCard({
 
   useEffect(() => {
     onReplayChartClickRef.current = (time) => {
+      if (linkedReplayActive && linkedReplayPickMode && onLinkedReplayPick) {
+        onLinkedReplayPick(time, id)
+        return
+      }
       if (!replayPickModeRef.current) return
       confirmReplayStartAt(time)
     }
-  }, [confirmReplayStartAt])
+  }, [confirmReplayStartAt, linkedReplayActive, linkedReplayPickMode, onLinkedReplayPick, id])
+
+  const replayApiRef = useRef({})
+  replayApiRef.current = {
+    enterReplay: enterReplayLocal,
+    exitReplay: () => exitReplayLocal({ notifyLinked: false }),
+    confirmStartAt: confirmReplayStartAt,
+    enterPickMode: enterReplayPickMode,
+    applyAtTime: applyReplayAtTime,
+    setSpeed: (sec) => {
+      setReplaySpeedSec(sec)
+      replayRef.current.speedSec = sec
+    },
+    canBacktest: () => supportsBacktest(symbolMarket) && !isLoading && !!historyLabel,
+    getCurrentIndex: () => replayRef.current.index,
+    getStartIndex: () => replayRef.current.startIndex,
+    getEndIndex: () => replayRef.current.endIndex,
+    getTimeAtIndex: (idx) => {
+      const data = candleDataRef.current
+      const i = Math.max(0, Math.min(data.length - 1, idx - 1))
+      return data[i]?.time ?? null
+    },
+    getEndTime: () => {
+      const data = candleDataRef.current
+      return data.length ? data[data.length - 1].time : null
+    }
+  }
+
+  useEffect(() => {
+    if (!registerReplay) return
+    registerReplay(id, replayApiRef.current)
+    return () => registerReplay(id, null)
+  }, [registerReplay, id, symbolMarket, isLoading, historyLabel])
 
   // Exit replay when symbol/timeframe/asset changes
   useEffect(() => {
@@ -878,7 +960,7 @@ export default function ChartCard({
       )}
 
       <div className="chart-stack">
-        <div className={`chart-main-wrap ${replayMode ? 'replay-active' : ''} ${replayPickMode ? 'replay-pick-mode' : ''}`} ref={mainContainerRef}>
+        <div className={`chart-main-wrap ${replayMode ? 'replay-active' : ''} ${(replayPickMode || linkedReplayPickMode) ? 'replay-pick-mode' : ''}`} ref={mainContainerRef}>
           {isLoading && (
             <ChartSkeleton
               progress={loadProgress}
@@ -927,7 +1009,7 @@ export default function ChartCard({
                 onReset={handleChartReset}
               />
             )}
-            {replayMode && (
+            {replayMode && showReplayToolbar && (
               <ReplayToolbar
                 speedSec={replaySpeedSec}
                 isPlaying={replayPlaying}

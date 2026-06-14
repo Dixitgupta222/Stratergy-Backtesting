@@ -549,6 +549,47 @@ body {
   flex: 1;
   min-height: 0;
   grid-auto-rows: 1fr;
+  position: relative;
+}
+.chart-grid--linked-replay .chart-main-wrap.replay-active .chart-nav-toolbar {
+  bottom: 72px;
+}
+.replay-linked-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 8px 8px;
+}
+.replay-linked-dock .replay-pick-hint {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  align-self: center;
+  margin-bottom: 8px;
+}
+.replay-linked-dock .replay-floating-toolbar {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  align-self: center;
+  margin-bottom: 6px;
+}
+.replay-linked-dock .replay-bottom-bar {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  display: flex;
+  width: 100%;
+  max-width: none;
 }
 .chart-grid--focused {
   grid-template-columns: 1fr !important;

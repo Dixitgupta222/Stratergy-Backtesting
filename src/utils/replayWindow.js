@@ -37,3 +37,23 @@ export function indexFromWindowProgress(pct, startIndex, endIndex) {
   const clamped = Math.max(0, Math.min(100, pct))
   return Math.max(startIndex, Math.min(endIndex, startIndex + Math.round((clamped / 100) * span)))
 }
+
+export function windowProgressFromTime(time, startTime, endTime) {
+  const span = endTime - startTime
+  if (span <= 0) return 0
+  return Math.max(0, Math.min(100, ((time - startTime) / span) * 100))
+}
+
+export function timeFromWindowProgress(pct, startTime, endTime) {
+  const span = endTime - startTime
+  if (span <= 0) return startTime
+  const clamped = Math.max(0, Math.min(100, pct))
+  return Math.round(startTime + (clamped / 100) * span)
+}
+
+export function formatReplayTime(ts) {
+  if (!ts) return '—'
+  return new Date(ts * 1000).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+}

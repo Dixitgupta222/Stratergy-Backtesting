@@ -17,7 +17,8 @@ export default function TopBar({
   syncCrosshair, setSyncCrosshair,
   syncTime, setSyncTime,
   syncDateRange, setSyncDateRange,
-  syncDrawings, setSyncDrawings
+  syncDrawings, setSyncDrawings,
+  syncReplay, setSyncReplay
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -100,6 +101,7 @@ export default function TopBar({
           syncTime={syncTime} setSyncTime={setSyncTime}
           syncDateRange={syncDateRange} setSyncDateRange={setSyncDateRange}
           syncDrawings={syncDrawings} setSyncDrawings={setSyncDrawings}
+          syncReplay={syncReplay} setSyncReplay={setSyncReplay}
         />
       </div>
     </header>

@@ -7,10 +7,11 @@ export default function SyncPanel({
   syncCrosshair, setSyncCrosshair,
   syncTime, setSyncTime,
   syncDateRange, setSyncDateRange,
-  syncDrawings, setSyncDrawings
+  syncDrawings, setSyncDrawings,
+  syncReplay, setSyncReplay
 }) {
   const [open, setOpen] = useState(false)
-  const activeCount = [syncSymbol, syncInterval, syncCrosshair, syncTime, syncDateRange, syncDrawings].filter(Boolean).length
+  const activeCount = [syncSymbol, syncInterval, syncCrosshair, syncTime, syncDateRange, syncDrawings, syncReplay].filter(Boolean).length
 
   return (
     <div className="sync-panel">
@@ -28,7 +29,8 @@ export default function SyncPanel({
             ['Crosshair', syncCrosshair, setSyncCrosshair],
             ['Time', syncTime, setSyncTime],
             ['Date range', syncDateRange, setSyncDateRange],
-            ['Drawings', syncDrawings, setSyncDrawings]
+            ['Drawings', syncDrawings, setSyncDrawings],
+            ['Replay', syncReplay, setSyncReplay]
           ].map(([label, val, setter]) => (
             <label key={label} className="switch">
               {label}

@@ -18,6 +18,7 @@ export default function App() {
   const [syncTime, setSyncTime] = useState(false)
   const [syncDateRange, setSyncDateRange] = useState(false)
   const [syncDrawings, setSyncDrawings] = useState(false)
+  const [syncReplay, setSyncReplay] = useState(false)
   const [sharedDrawings, setSharedDrawings] = useState([])
 
   const [watchlistApply, setWatchlistApply] = useState(null)
@@ -75,6 +76,8 @@ export default function App() {
           setSyncDateRange={setSyncDateRange}
           syncDrawings={syncDrawings}
           setSyncDrawings={setSyncDrawings}
+          syncReplay={syncReplay}
+          setSyncReplay={setSyncReplay}
         />
 
         <div className="chart-area">
@@ -92,6 +95,7 @@ export default function App() {
             syncTime={syncTime}
             syncDateRange={syncDateRange}
             syncDrawings={syncDrawings}
+            syncReplay={syncReplay}
             sharedDrawings={sharedDrawings}
             setSharedDrawings={setSharedDrawings}
             focusedChartId={focusedChartId}

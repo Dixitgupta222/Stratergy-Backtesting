@@ -14,17 +14,19 @@ export default function ReplayToolbar({
   onStepForward,
   onReselect,
   onStop,
-  onSeek
+  onSeek,
+  linked = false
 }) {
   return (
     <>
       {pickMode && (
         <div className="replay-pick-hint">
-          Click on the chart to choose where replay starts
+          {linked ? 'Click any linked chart to choose where replay starts' : 'Click on the chart to choose where replay starts'}
         </div>
       )}
 
       <div className="replay-floating-toolbar">
+        {linked && <span className="replay-badge linked">Linked</span>}
         <button type="button" className="chart-float-btn" onClick={onSpeedDown} title="Slower">
           <Minus size={18} />
         </button>
