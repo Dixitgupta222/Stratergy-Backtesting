@@ -1,3 +1,5 @@
+import { filterForexHints } from './forexPairs'
+
 /** Instant local suggestions — no network required */
 export const SYMBOL_HINTS = [
   { symbol: 'BTCUSDT', name: 'Bitcoin', market: 'crypto' },
@@ -20,12 +22,13 @@ export const SYMBOL_HINTS = [
   { symbol: 'ICICIBANK', name: 'ICICI Bank', market: 'stocks' },
   { symbol: 'SBIN', name: 'State Bank of India', market: 'stocks' },
   { symbol: 'BHARTIARTL', name: 'Bharti Airtel', market: 'stocks' },
-  { symbol: 'TATAMOTORS', name: 'Tata Motors', market: 'stocks' }
+  { symbol: 'TATAMOTORS', name: 'Tata Motors', market: 'stocks' },
+  ...filterForexHints('', 6)
 ]
 
 export function filterSymbolHints(query = '', limit = 50) {
   const q = query.trim().toUpperCase()
-  if (!q) return SYMBOL_HINTS.slice(0, 12)
+  if (!q) return SYMBOL_HINTS.slice(0, 14)
 
   return SYMBOL_HINTS.filter((item) => {
     const sym = item.symbol.toUpperCase()

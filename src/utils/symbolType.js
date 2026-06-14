@@ -1,5 +1,7 @@
 /** @typedef {'crypto' | 'stocks' | 'forex'} SymbolMarket */
 
+import { isForexSymbol } from '../data/forexPairs'
+
 export const MARKET_LABELS = {
   crypto: 'Crypto',
   stocks: 'NSE',
@@ -12,12 +14,6 @@ const INDIA_INDICES = new Set([
   'NIFTYMIDCAP50', 'NIFTYNEXT50', 'INDIAVIX'
 ])
 
-const FOREX_PAIRS = new Set([
-  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-  'EURGBP', 'EURJPY', 'GBPJPY', 'AUDJPY', 'EURAUD', 'EURCHF', 'GBPAUD',
-  'XAUUSD', 'XAGUSD'
-])
-
 const CRYPTO_SUFFIXES = ['USDT', 'BUSD', 'USDC', 'BTC', 'ETH', 'BNB']
 
 /**
@@ -26,13 +22,12 @@ const CRYPTO_SUFFIXES = ['USDT', 'BUSD', 'USDC', 'BTC', 'ETH', 'BNB']
  * @returns {SymbolMarket}
  */
 export function detectSymbolMarket(symbol) {
-  const s = String(symbol || '').toUpperCase().trim()
+  const s = String(symbol || '').toUpperCase().trim().replace(/=X$/, '')
   if (!s) return 'crypto'
 
   if (INDIA_INDICES.has(s) || s.endsWith('.NS') || s.endsWith('.BO')) return 'stocks'
-  if (FOREX_PAIRS.has(s)) return 'forex'
   if (CRYPTO_SUFFIXES.some((x) => s.endsWith(x)) && s.length >= 6) return 'crypto'
-  if (/^[A-Z]{6}$/.test(s) && (s.startsWith('USD') || s.endsWith('USD') || s.includes('JPY'))) return 'forex'
+  if (isForexSymbol(s)) return 'forex'
 
   // Short tickers without crypto quote suffix → NSE equity
   if (/^[A-Z][A-Z0-9.&-]{0,18}$/.test(s) && s.length <= 15) return 'stocks'
@@ -49,9 +44,9 @@ export function supportsLiveStream(market) {
 }
 
 export function supportsBacktest(market) {
-  return market === 'crypto' || market === 'stocks'
+  return market === 'crypto' || market === 'stocks' || market === 'forex'
 }
 
 export function scrollToLiveOnReset(market) {
-  return market === 'crypto' || market === 'stocks'
+  return market === 'crypto' || market === 'stocks' || market === 'forex'
 }

@@ -1,14 +1,4 @@
-export function timestampToDateInput(ts) {
-  if (!ts) return ''
-  const d = new Date(ts * 1000)
-  return d.toISOString().slice(0, 10)
-}
-
-export function dateInputToTimestamp(value, endOfDay = false) {
-  if (!value) return null
-  const d = new Date(`${value}T${endOfDay ? '23:59:59' : '00:00:00'}`)
-  return Math.floor(d.getTime() / 1000)
-}
+export { timestampToDateInput, dateInputToTimestamp } from './chartTimezone'
 
 export function applyVisibleDateRange(chart, range) {
   if (!chart || !range?.from || !range?.to) return

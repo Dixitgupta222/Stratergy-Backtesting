@@ -1,6 +1,8 @@
 import { filterSymbolHints } from '../data/symbolHints'
+import { filterForexHints } from '../data/forexPairs'
 import { fetchBinanceSymbols } from './symbols'
 import { fetchIndiaSymbols } from './indiaMarket'
+import { fetchForexSymbols } from './forexMarket'
 
 function mergeResults(...lists) {
   const seen = new Set()
@@ -32,22 +34,26 @@ function rankResults(items, query) {
     }
     const diff = score(a) - score(b)
     if (diff !== 0) return diff
-    const order = { stocks: 0, crypto: 1 }
+    const order = { stocks: 0, forex: 1, crypto: 2 }
     return (order[a.market] ?? 9) - (order[b.market] ?? 9)
   })
 }
 
 /**
- * Crypto + NSE search (forex excluded).
+ * Crypto + NSE + Forex search.
  * Local hints show instantly; API results merge in.
  */
 export async function searchAllSymbols(query = '') {
   const q = query.trim()
-  const local = filterSymbolHints(q).map((x) => ({ ...x }))
+  const local = [
+    ...filterSymbolHints(q).map((x) => ({ ...x })),
+    ...filterForexHints(q).map((x) => ({ ...x }))
+  ]
 
-  const [cryptoRes, indiaRes] = await Promise.allSettled([
+  const [cryptoRes, indiaRes, forexRes] = await Promise.allSettled([
     fetchBinanceSymbols(q),
-    fetchIndiaSymbols(q)
+    fetchIndiaSymbols(q),
+    fetchForexSymbols(q)
   ])
 
   const crypto =
@@ -58,11 +64,18 @@ export async function searchAllSymbols(query = '') {
     indiaRes.status === 'fulfilled'
       ? indiaRes.value.map((x) => ({ ...x, market: 'stocks' }))
       : []
+  const forex =
+    forexRes.status === 'fulfilled'
+      ? forexRes.value.map((x) => ({ ...x, market: 'forex' }))
+      : []
 
-  return rankResults(mergeResults(local, india, crypto), q).slice(0, 50)
+  return rankResults(mergeResults(local, india, forex, crypto), q).slice(0, 50)
 }
 
 /** Synchronous instant hints for dropdown while API loads */
 export function searchSymbolsInstant(query = '') {
-  return filterSymbolHints(query)
+  return [
+    ...filterSymbolHints(query),
+    ...filterForexHints(query)
+  ].slice(0, 50)
 }

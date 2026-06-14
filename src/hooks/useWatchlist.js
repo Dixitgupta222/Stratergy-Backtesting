@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetch24hTickers } from '../services/ticker'
 import { fetchIndiaQuotes } from '../services/indiaMarket'
+import { fetchForexQuotes } from '../services/forexMarket'
 import { detectSymbolMarket } from '../utils/symbolType'
 
 const STORAGE_KEY = 'trading-panel-watchlist'
@@ -31,11 +32,13 @@ export function useWatchlist() {
     const poll = async () => {
       const cryptoSyms = symbols.filter((s) => detectSymbolMarket(s) === 'crypto')
       const indiaSyms = symbols.filter((s) => detectSymbolMarket(s) === 'stocks')
-      const [crypto, india] = await Promise.all([
+      const forexSyms = symbols.filter((s) => detectSymbolMarket(s) === 'forex')
+      const [crypto, india, forex] = await Promise.all([
         fetch24hTickers(cryptoSyms),
-        fetchIndiaQuotes(indiaSyms)
+        fetchIndiaQuotes(indiaSyms),
+        fetchForexQuotes(forexSyms)
       ])
-      if (mounted) setTickers({ ...crypto, ...india })
+      if (mounted) setTickers({ ...crypto, ...india, ...forex })
     }
     poll()
     const id = setInterval(poll, 10000)

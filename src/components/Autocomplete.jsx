@@ -115,7 +115,7 @@ export default function Autocomplete({ value, onChange }) {
           setOpen(true)
         }}
         onBlur={handleBlur}
-        placeholder="BTC, NIFTY, RELIANCE…"
+        placeholder="BTC, NIFTY, EURUSD, XAUUSD…"
         autoComplete="off"
         spellCheck={false}
       />

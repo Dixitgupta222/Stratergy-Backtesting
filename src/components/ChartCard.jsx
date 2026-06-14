@@ -545,6 +545,12 @@ export default function ChartCard({
       } catch (err) {
         if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
         console.error(err)
+        candleDataRef.current = []
+        candleSeriesRef.current?.setData([])
+        setHistoryLabel('')
+        setLatestPrice(null)
+        setLastCandle(null)
+        setPrevCandle(null)
         setError(err.message || 'Failed to load data')
       } finally {
         if (!cancelled) {

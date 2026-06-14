@@ -51,9 +51,8 @@ export function timeFromWindowProgress(pct, startTime, endTime) {
   return Math.round(startTime + (clamped / 100) * span)
 }
 
+import { formatChartDateTime } from './chartTimezone'
+
 export function formatReplayTime(ts) {
-  if (!ts) return '—'
-  return new Date(ts * 1000).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  })
+  return formatChartDateTime(ts)
 }

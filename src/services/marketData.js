@@ -1,6 +1,6 @@
 import { fetchCryptoHistory } from './historicalData'
 import { fetchIndiaHistory } from './indiaMarket'
-import { fetchAlphaVantage } from './dataFetch'
+import { fetchForexHistory } from './forexMarket'
 import { detectSymbolMarket } from '../utils/symbolType'
 
 export async function fetchMarketHistory(symbol, timeframe, onProgress, market = null, options = {}) {
@@ -11,5 +11,8 @@ export async function fetchMarketHistory(symbol, timeframe, onProgress, market =
   if (m === 'stocks') {
     return fetchIndiaHistory(symbol, timeframe, onProgress, options)
   }
-  return fetchAlphaVantage(symbol, timeframe)
+  if (m === 'forex') {
+    return fetchForexHistory(symbol, timeframe, onProgress, options)
+  }
+  throw new Error(`Unsupported market for ${symbol}`)
 }

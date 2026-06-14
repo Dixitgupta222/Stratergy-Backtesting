@@ -578,10 +578,16 @@ export default function DrawingOverlay({
   const renderChannel = (d, selected) => {
     const a = toPixel(d.p1.time, d.p1.price)
     const b = toPixel(d.p2.time, d.p2.price)
-    const c = toPixel(d.p3.time, d.p3.price)
-    if (!a || !b || !c) return null
-    const off = parallelOffset(a, b, c)
+    if (!a || !b) return null
     const sw = selected ? 2 : STROKE
+    if (!d.p3) {
+      return (
+        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#06b6d4" strokeWidth={sw} />
+      )
+    }
+    const c = toPixel(d.p3.time, d.p3.price)
+    if (!c) return null
+    const off = parallelOffset(a, b, c)
     return (
       <g>
         <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#06b6d4" strokeWidth={sw} />
@@ -694,8 +700,9 @@ export default function DrawingOverlay({
     const tool = getDrawingTool(activeTool)
     if (!tool || tool.dragCreate || tool.clicks < 2) return null
 
-    const preview = { id: 'preview', type: activeTool, p1: pending[0], p2: hover }
-    if (pending.length === 2 && tool.clicks === 3) preview.p3 = hover
+    const preview = tool.clicks === 3 && pending.length >= 2
+      ? { id: 'preview', type: activeTool, p1: pending[0], p2: pending[1], p3: hover }
+      : { id: 'preview', type: activeTool, p1: pending[0], p2: hover }
 
     return (
       <g opacity={0.75}>

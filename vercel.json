@@ -10,6 +10,12 @@
     },
     "api/india/quotes.js": {
       "maxDuration": 15
+    },
+    "api/forex/history.js": {
+      "maxDuration": 30
+    },
+    "api/forex/quotes.js": {
+      "maxDuration": 15
     }
   }
 }

@@ -5,6 +5,11 @@ import yfinance as yf
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from server.forex_symbols import (
+    FOREX_UNIVERSE,
+    search_symbols as search_forex_symbols,
+    to_yfinance_symbol as to_yfinance_forex_symbol,
+)
 from server.india_symbols import (
     build_symbol_universe,
     search_symbols,
@@ -56,7 +61,83 @@ def load_symbols():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "symbols": len(SYMBOL_UNIVERSE)}
+    return {"ok": True, "symbols": len(SYMBOL_UNIVERSE), "forex": len(FOREX_UNIVERSE)}
+
+
+@app.get("/api/forex/symbols")
+def forex_symbols(q: str = Query("", alias="q"), limit: int = 50):
+    return search_forex_symbols(FOREX_UNIVERSE, q, min(limit, 100))
+
+
+@app.get("/api/forex/history")
+def forex_history(
+    symbol: str = Query(..., min_length=1),
+    interval: str = Query("1d"),
+):
+    yf_sym = to_yfinance_forex_symbol(symbol)
+    yf_interval = INTERVAL_MAP.get(interval, "1d")
+    period = PERIOD_BY_INTERVAL.get(interval, "2y")
+
+    try:
+        ticker = yf.Ticker(yf_sym)
+        df = ticker.history(period=period, interval=yf_interval, auto_adjust=False)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"yfinance error: {exc}") from exc
+
+    if df is None or df.empty:
+        raise HTTPException(status_code=404, detail=f"No data for {symbol}")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=124)
+    candles = []
+    for idx, row in df.iterrows():
+        ts = idx.to_pydatetime()
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        else:
+            ts = ts.astimezone(timezone.utc)
+        if ts < cutoff and interval not in ("1w", "1M"):
+            continue
+        candles.append(
+            {
+                "time": int(ts.timestamp()),
+                "open": float(row["Open"]),
+                "high": float(row["High"]),
+                "low": float(row["Low"]),
+                "close": float(row["Close"]),
+                "volume": float(row.get("Volume", 0) or 0),
+            }
+        )
+
+    if interval == "4h" and candles:
+        candles = _resample_4h(candles)
+
+    if not candles:
+        raise HTTPException(status_code=404, detail=f"No candles in range for {symbol}")
+
+    return candles
+
+
+@app.get("/api/forex/quotes")
+def forex_quotes(symbols: str = Query(..., min_length=1)):
+    sym_list = [s.strip().upper().replace("=X", "") for s in symbols.split(",") if s.strip()]
+    out = {}
+    for sym in sym_list[:40]:
+        try:
+            yf_sym = to_yfinance_forex_symbol(sym)
+            ticker = yf.Ticker(yf_sym)
+            info = ticker.fast_info
+            last = float(getattr(info, "last_price", None) or getattr(info, "previous_close", 0) or 0)
+            prev = float(getattr(info, "previous_close", None) or last or 0)
+            change_pct = ((last - prev) / prev * 100) if prev else 0
+            out[sym] = {
+                "price": last,
+                "changePct": change_pct,
+                "high": float(getattr(info, "day_high", None) or last),
+                "low": float(getattr(info, "day_low", None) or last),
+            }
+        except Exception:
+            out[sym] = {"price": None, "changePct": None, "high": None, "low": None}
+    return out
 
 
 @app.get("/api/india/symbols")

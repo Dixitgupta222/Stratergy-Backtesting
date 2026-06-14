@@ -1,3 +1,5 @@
+import { getChartLocalization, getChartTimeScaleOptions } from './chartTimezone'
+
 export function readCssVar(name, fallback) {
   if (typeof document === 'undefined') return fallback
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -19,13 +21,10 @@ export function getChartOptions() {
       borderColor: readCssVar('--border', '#30363d'),
       autoScale: true
     },
+    localization: getChartLocalization(),
     timeScale: {
       borderColor: readCssVar('--border', '#30363d'),
-      timeVisible: true,
-      secondsVisible: false,
-      shiftVisibleRangeOnNewBar: true,
-      rightOffset: 20,
-      barSpacing: 8
+      ...getChartTimeScaleOptions()
     }
   }
 }
