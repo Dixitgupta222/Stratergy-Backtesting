@@ -23,8 +23,11 @@ def _run_node(mode: str, *args: str) -> str:
     return proc.stdout
 
 
-def fetch_dukascopy_candles(symbol: str, interval: str = "15m") -> List[dict]:
-    out = _run_node("history", symbol.upper(), interval)
+def fetch_dukascopy_candles(symbol: str, interval: str = "15m", days: int | None = None) -> List[dict]:
+    args = ["history", symbol.upper(), interval]
+    if days is not None:
+        args.append(str(days))
+    out = _run_node(*args)
     return json.loads(out)
 
 

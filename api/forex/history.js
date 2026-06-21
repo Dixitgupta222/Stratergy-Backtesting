@@ -2,7 +2,7 @@ const { applyCors, handleOptions } = require('../lib/cors')
 const { toYahooSymbol } = require('../lib/forexSymbols')
 const { fetchYahooCandles } = require('../lib/yahooChart')
 const { fetchFinnhubCandles, isFinnhubPremiumError } = require('../lib/finnhubForex')
-const { fetchDukascopyCandles } = require('../lib/dukascopyForex')
+const { fetchDukascopyCandles, getForexMaxDays } = require('../lib/dukascopyForex')
 const { isMetalSymbol, normalizeForexCandles } = require('../lib/forexPrecision')
 
 module.exports = async function handler(req, res) {
@@ -16,6 +16,10 @@ module.exports = async function handler(req, res) {
 
   const symbol = String(req.query.symbol || '').trim()
   const interval = String(req.query.interval || '1d')
+  const daysParam = parseInt(String(req.query.days || ''), 10)
+  const days = Number.isFinite(daysParam) && daysParam > 0
+    ? Math.min(daysParam, getForexMaxDays(interval))
+    : undefined
 
   if (!symbol) {
     res.status(400).json({ detail: 'symbol is required' })
@@ -40,7 +44,7 @@ module.exports = async function handler(req, res) {
 
     if (!candles.length) {
       try {
-        candles = await fetchDukascopyCandles(symbol, interval)
+        candles = await fetchDukascopyCandles(symbol, interval, { days })
         source = 'dukascopy'
       } catch (err) {
         console.error('forex/history dukascopy error:', err.message)

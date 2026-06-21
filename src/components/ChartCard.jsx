@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createChart } from 'lightweight-charts'
-import { fetchMarketHistory, extendMarketHistory, shouldExtendHistoryInBackground } from '../services/marketData'
+import { fetchMarketHistory, extendMarketHistory, shouldExtendHistory } from '../services/marketData'
 import { fetchForexQuotes } from '../services/forexMarket'
 import {
   detectSymbolMarket,
@@ -648,6 +648,7 @@ export default function ChartCard({
 
     const load = async () => {
       let showedEarly = false
+      let willExtend = false
       try {
         const data = await fetchMarketHistory(
           symbol,
@@ -666,23 +667,31 @@ export default function ChartCard({
         )
         if (cancelled || !candleSeriesRef.current) return
         applyLoadedData(data, { resetView: !showedEarly })
+        if (!showedEarly) setIsLoading(false)
 
-        if (shouldExtendHistoryInBackground(timeframe)) {
+        if (shouldExtendHistory(timeframe, symbolMarket)) {
+          willExtend = true
+          setLoadProgress({ loaded: 0, total: 1, candles: data.length, cached: false, extending: true })
           extendMarketHistory(
             symbol,
             timeframe,
             data,
             (p) => {
-              if (!cancelled) setLoadProgress(p)
+              if (!cancelled) setLoadProgress({ ...p, extending: true })
             },
             symbolMarket,
             { signal: controller.signal }
           ).then((extended) => {
-            if (cancelled || !extended?.length || extended.length === data.length) return
+            if (cancelled || !extended?.length || extended.length === data.length) {
+              if (!cancelled) setLoadProgress(null)
+              return
+            }
             applyLoadedData(extended, { resetView: false })
+            setLoadProgress(null)
           }).catch((err) => {
             if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
             console.warn('Background history extend failed:', err)
+            setLoadProgress(null)
           })
         }
       } catch (err) {
@@ -698,7 +707,7 @@ export default function ChartCard({
       } finally {
         if (!cancelled) {
           setIsLoading(false)
-          setLoadProgress(null)
+          if (!willExtend) setLoadProgress(null)
         }
       }
     }

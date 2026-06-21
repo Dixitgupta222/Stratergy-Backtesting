@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-/** CLI for Python server — node scripts/dukascopy_forex.cjs history EURUSD 15m */
+/** CLI for Python server — node scripts/dukascopy_forex.cjs history EURUSD 15m [days] */
 const {
   fetchDukascopyCandles,
   fetchDukascopyQuotes
 } = require('../api/lib/dukascopyForex')
 
 async function main() {
-  const [mode, symbol, interval, ...rest] = process.argv.slice(2)
+  const [mode, symbol, interval, daysArg, ...rest] = process.argv.slice(2)
+  const days = daysArg && !Number.isNaN(Number(daysArg)) ? Number(daysArg) : undefined
+
   if (mode === 'history') {
-    const candles = await fetchDukascopyCandles(symbol, interval || '15m')
+    const candles = await fetchDukascopyCandles(symbol, interval || '15m', { days })
     process.stdout.write(JSON.stringify(candles))
     return
   }

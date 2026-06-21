@@ -7,16 +7,16 @@ export const MAX_CHART_CANDLES = 3500
 export const CHART_HISTORY_DAYS = 60
 
 const CHART_HISTORY_DAYS_BY_TF = {
-  '1m': 10,
-  '5m': 30
+  '1m': 30,
+  '5m': 60
 }
 
 /** Absolute bar caps per timeframe — keeps lightweight-charts responsive */
 const DISPLAY_BAR_CAP = {
-  '1m': 15_000,
-  '5m': 9_000,
-  '15m': 6_000,
-  '1h': 1_600,
+  '1m': 20_000,
+  '5m': 12_000,
+  '15m': 8_000,
+  '1h': 2_000,
   '4h': 500
 }
 
