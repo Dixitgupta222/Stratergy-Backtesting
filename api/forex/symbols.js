@@ -1,5 +1,5 @@
-const { applyCors, handleOptions } = require('../lib/cors')
-const { searchSymbols } = require('../lib/forexSymbols')
+const { applyCors, handleOptions } = require('../../lib/cors')
+const { searchSymbols } = require('../../lib/forexSymbols')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return

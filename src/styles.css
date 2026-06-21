@@ -436,6 +436,115 @@ body {
   justify-content: flex-end;
 }
 
+.date-range-popover--wide {
+  min-width: 280px;
+}
+.date-range-section {
+  margin-bottom: 4px;
+}
+.date-range-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.date-range-section-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+.date-range-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.go-to-date-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.go-to-date-inline input[type="date"] {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.go-to-date-inline .go-to-date-error {
+  flex-basis: 100%;
+}
+
+/* Go to date picker */
+.go-to-date-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.go-to-date-wrap--toolbar {
+  display: inline-flex;
+}
+.go-to-date-label {
+  margin-left: 6px;
+}
+.go-to-date-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  min-width: 240px;
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.go-to-date-popover--up {
+  top: auto;
+  bottom: calc(100% + 8px);
+  right: 50%;
+  transform: translateX(50%);
+}
+.go-to-date-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.go-to-date-popover input[type="date"] {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.go-to-date-hint {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.go-to-date-error {
+  font-size: 11px;
+  color: var(--danger, #f23645);
+  margin-top: 6px;
+}
+.go-to-date-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 /* ── Sync panel ── */
 .sync-panel {
   position: relative;

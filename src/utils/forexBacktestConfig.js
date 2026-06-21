@@ -1,4 +1,4 @@
-/** Forex backtest history windows — keep in sync with api/lib/dukascopyForex.js */
+/** Forex backtest history windows — keep in sync with lib/dukascopyForex.js */
 export const FOREX_BACKTEST_DAYS = 124
 export const FOREX_1M_BACKTEST_DAYS = 90
 

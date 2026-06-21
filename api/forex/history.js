@@ -1,9 +1,9 @@
-const { applyCors, handleOptions } = require('../lib/cors')
-const { toYahooSymbol } = require('../lib/forexSymbols')
-const { fetchYahooCandles } = require('../lib/yahooChart')
-const { fetchFinnhubCandles, isFinnhubPremiumError } = require('../lib/finnhubForex')
-const { fetchDukascopyCandles, getForexMaxDays } = require('../lib/dukascopyForex')
-const { isMetalSymbol, normalizeForexCandles } = require('../lib/forexPrecision')
+const { applyCors, handleOptions } = require('../../lib/cors')
+const { toYahooSymbol } = require('../../lib/forexSymbols')
+const { fetchYahooCandles } = require('../../lib/yahooChart')
+const { fetchFinnhubCandles, isFinnhubPremiumError } = require('../../lib/finnhubForex')
+const { fetchDukascopyCandles, getForexMaxDays } = require('../../lib/dukascopyForex')
+const { isMetalSymbol, normalizeForexCandles } = require('../../lib/forexPrecision')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return

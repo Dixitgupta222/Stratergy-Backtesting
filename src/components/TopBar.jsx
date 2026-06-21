@@ -3,6 +3,7 @@ import Autocomplete from './Autocomplete'
 import TimeframePills from './TimeframePills'
 import SyncPanel from './SyncPanel'
 import MarketStatus from './MarketStatus'
+import GoToDatePicker, { makeGoToDateRequest } from './GoToDatePicker'
 import { dateInputToTimestamp, timestampToDateInput } from '../utils/chartHelpers'
 
 export default function TopBar({
@@ -12,6 +13,7 @@ export default function TopBar({
   setSharedTimeframe,
   sharedDateRange,
   setSharedDateRange,
+  setSharedGoToDate,
   syncSymbol, setSyncSymbol,
   syncInterval, setSyncInterval,
   syncCrosshair, setSyncCrosshair,
@@ -41,6 +43,12 @@ export default function TopBar({
     setDateTo('')
     setSharedDateRange(null)
     setDateOpen(false)
+  }
+
+  const handleGlobalGoToDate = (_dateStr, dayStartSec) => {
+    setSharedGoToDate(makeGoToDateRequest(dayStartSec))
+    setDateOpen(false)
+    return true
   }
 
   return (
@@ -74,21 +82,37 @@ export default function TopBar({
       <div className="topbar-section topbar-actions">
         <div className="date-range-wrap">
           <button type="button" className="btn-ghost" onClick={() => setDateOpen((o) => !o)}>
-            Date Range
+            Calendar
           </button>
           {dateOpen && (
-            <div className="date-range-popover">
-              <div className="date-range-row">
-                <label>From</label>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <div className="date-range-popover date-range-popover--wide">
+              <div className="date-range-section">
+                <div className="date-range-section-title">Go to date</div>
+                <p className="date-range-section-hint">Jump all charts to a specific day</p>
+                <GoToDatePicker
+                  variant="inline"
+                  onGo={handleGlobalGoToDate}
+                  title="Go to date on all charts"
+                />
               </div>
-              <div className="date-range-row">
-                <label>To</label>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-              </div>
-              <div className="date-range-actions">
-                <button type="button" className="btn-primary" onClick={applyDateRange}>Apply</button>
-                <button type="button" className="btn-ghost" onClick={clearDateRange}>Reset</button>
+
+              <div className="date-range-divider" />
+
+              <div className="date-range-section">
+                <div className="date-range-section-title">Date range</div>
+                <p className="date-range-section-hint">Zoom to a from–to window</p>
+                <div className="date-range-row">
+                  <label>From</label>
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                </div>
+                <div className="date-range-row">
+                  <label>To</label>
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                </div>
+                <div className="date-range-actions">
+                  <button type="button" className="btn-primary" onClick={applyDateRange}>Apply range</button>
+                  <button type="button" className="btn-ghost" onClick={clearDateRange}>Reset</button>
+                </div>
               </div>
             </div>
           )}

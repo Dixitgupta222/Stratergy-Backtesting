@@ -3,7 +3,7 @@
 const {
   fetchDukascopyCandles,
   fetchDukascopyQuotes
-} = require('../api/lib/dukascopyForex')
+} = require('../lib/dukascopyForex')
 
 async function main() {
   const [mode, symbol, interval, daysArg, ...rest] = process.argv.slice(2)

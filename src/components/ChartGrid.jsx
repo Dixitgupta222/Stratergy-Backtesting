@@ -18,6 +18,7 @@ export default function ChartGrid({
   setSharedTimeframe,
   sharedDateRange,
   setSharedDateRange,
+  sharedGoToDate,
   syncSymbol,
   syncInterval,
   syncCrosshair,
@@ -333,6 +334,7 @@ export default function ChartGrid({
           setSharedSymbol={setSharedSymbol}
           setSharedTimeframe={setSharedTimeframe}
           sharedDateRange={sharedDateRange}
+          sharedGoToDate={sharedGoToDate}
           syncSymbol={syncSymbol}
           syncInterval={syncInterval}
           syncCrosshair={syncCrosshair}

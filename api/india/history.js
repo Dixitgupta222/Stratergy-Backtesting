@@ -1,6 +1,6 @@
-const { applyCors, handleOptions } = require('../lib/cors')
-const { toYahooSymbol } = require('../lib/indiaSymbols')
-const { fetchYahooCandles } = require('../lib/yahooChart')
+const { applyCors, handleOptions } = require('../../lib/cors')
+const { toYahooSymbol } = require('../../lib/indiaSymbols')
+const { fetchYahooCandles } = require('../../lib/yahooChart')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return

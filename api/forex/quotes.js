@@ -1,8 +1,8 @@
-const { applyCors, handleOptions } = require('../lib/cors')
-const { toYahooSymbol } = require('../lib/forexSymbols')
-const { fetchFinnhubQuotes, isFinnhubPremiumError } = require('../lib/finnhubForex')
-const { fetchDukascopyQuotes } = require('../lib/dukascopyForex')
-const { normalizeForexQuote } = require('../lib/forexPrecision')
+const { applyCors, handleOptions } = require('../../lib/cors')
+const { toYahooSymbol } = require('../../lib/forexSymbols')
+const { fetchFinnhubQuotes, isFinnhubPremiumError } = require('../../lib/finnhubForex')
+const { fetchDukascopyQuotes } = require('../../lib/dukascopyForex')
+const { normalizeForexQuote } = require('../../lib/forexPrecision')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return

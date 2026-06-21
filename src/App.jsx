@@ -12,6 +12,7 @@ export default function App() {
   const [sharedSymbol, setSharedSymbol] = useState('BTCUSDT')
   const [sharedTimeframe, setSharedTimeframe] = useState('15m')
   const [sharedDateRange, setSharedDateRange] = useState(null)
+  const [sharedGoToDate, setSharedGoToDate] = useState(null)
   const [syncSymbol, setSyncSymbol] = useState(false)
   const [syncInterval, setSyncInterval] = useState(false)
   const [syncCrosshair, setSyncCrosshair] = useState(false)
@@ -64,6 +65,8 @@ export default function App() {
           setSharedTimeframe={setSharedTimeframe}
           sharedDateRange={sharedDateRange}
           setSharedDateRange={setSharedDateRange}
+          sharedGoToDate={sharedGoToDate}
+          setSharedGoToDate={setSharedGoToDate}
           syncSymbol={syncSymbol}
           setSyncSymbol={setSyncSymbol}
           syncInterval={syncInterval}
@@ -89,6 +92,7 @@ export default function App() {
             setSharedTimeframe={setSharedTimeframe}
             sharedDateRange={sharedDateRange}
             setSharedDateRange={setSharedDateRange}
+            sharedGoToDate={sharedGoToDate}
             syncSymbol={syncSymbol}
             syncInterval={syncInterval}
             syncCrosshair={syncCrosshair}

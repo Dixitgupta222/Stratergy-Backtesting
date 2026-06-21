@@ -1,4 +1,4 @@
-/** Forex pair universe — keep in sync with api/lib/forexSymbols.js */
+/** Forex pair universe — keep in sync with lib/forexSymbols.js */
 export const FOREX_PAIRS = [
   { symbol: 'EURUSD', name: 'Euro / US Dollar', base: 'EUR', quote: 'USD', type: 'major' },
   { symbol: 'GBPUSD', name: 'British Pound / US Dollar', base: 'GBP', quote: 'USD', type: 'major' },

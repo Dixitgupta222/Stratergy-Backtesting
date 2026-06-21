@@ -39,6 +39,31 @@ export function focusChartOnBar(chart, barIndex, visibleBars) {
   ts.setVisibleLogicalRange({ from, to: barIndex + 1 })
 }
 
+/** Find bar index for a calendar day (day start = unix seconds at IST midnight). */
+export function findBarIndexForDate(data, dayStartSec) {
+  if (!data?.length || dayStartSec == null) return null
+
+  if (dayStartSec >= data[data.length - 1].time) return data.length - 1
+  if (dayStartSec < data[0].time) return 0
+
+  let lo = 0
+  let hi = data.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (data[mid].time < dayStartSec) lo = mid + 1
+    else hi = mid
+  }
+  return lo
+}
+
+/** Jump chart viewport to a specific calendar date using loaded candle data. */
+export function focusChartOnDate(chart, data, dayStartSec, visibleBars) {
+  const idx = findBarIndexForDate(data, dayStartSec)
+  if (idx == null) return false
+  focusChartOnBar(chart, idx, visibleBars)
+  return true
+}
+
 export function zoomChart(chart, direction) {
   const ts = chart?.timeScale?.()
   if (!ts) return

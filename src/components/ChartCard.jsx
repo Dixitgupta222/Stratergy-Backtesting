@@ -12,7 +12,7 @@ import { formatHistoryRange } from '../utils/backtestConfig'
 import { getChartDisplayData, getReplayChartData, getLinkedReplayChartData, shouldUseLinkedFormingCandle } from '../utils/chartData'
 import { getChartPriceFormat } from '../utils/forexPrecision'
 import { sma, ema, rsi, macd, bollingerBands } from '../utils/indicators'
-import { applyVisibleDateRange, SUB_PANE_HEIGHT } from '../utils/chartHelpers'
+import { applyVisibleDateRange, SUB_PANE_HEIGHT, timestampToDateInput } from '../utils/chartHelpers'
 import {
   findEndIndexUntilTime,
   windowProgressFromIndex,
@@ -33,7 +33,7 @@ import ChartToolbar from './ChartToolbar'
 import ChartSkeleton from './ChartSkeleton'
 import ReplayToolbar from './ReplayToolbar'
 import ChartNavToolbar from './ChartNavToolbar'
-import { zoomChart, panChart, resetChartView, followReplayHead } from '../utils/chartNavigation'
+import { zoomChart, panChart, resetChartView, followReplayHead, focusChartOnDate } from '../utils/chartNavigation'
 import { useTheme } from '../context/ThemeContext'
 import { Maximize2, Minimize2 } from 'lucide-react'
 
@@ -50,6 +50,7 @@ export default function ChartCard({
   setSharedSymbol,
   setSharedTimeframe,
   sharedDateRange,
+  sharedGoToDate,
   syncSymbol,
   syncInterval,
   syncCrosshair,
@@ -770,6 +771,36 @@ export default function ChartCard({
     syncSubCharts(sharedDateRange)
   }, [sharedDateRange, syncSubCharts])
 
+  // Jump all charts to a calendar date (TopBar Go to Date)
+  useEffect(() => {
+    if (!sharedGoToDate?.time || !chartRef.current || !candleDataRef.current.length) return
+    navChangeLockRef.current = true
+    focusChartOnDate(chartRef.current, candleDataRef.current, sharedGoToDate.time)
+    scheduleViewSync()
+    requestAnimationFrame(() => { navChangeLockRef.current = false })
+  }, [sharedGoToDate, scheduleViewSync])
+
+  const dataDateBounds = useMemo(() => {
+    const data = candleDataRef.current
+    if (!data.length) return { min: '', max: '' }
+    return {
+      min: timestampToDateInput(data[0].time),
+      max: timestampToDateInput(data[data.length - 1].time)
+    }
+  }, [dataVersion, historyLabel])
+
+  const handleGoToDate = useCallback((_dateStr, dayStartSec) => {
+    if (!chartRef.current || !candleDataRef.current.length) return false
+    navChangeLockRef.current = true
+    const ok = focusChartOnDate(chartRef.current, candleDataRef.current, dayStartSec)
+    if (ok) {
+      scheduleViewSync()
+      requestAnimationFrame(() => updatePriceOverlayPosition())
+    }
+    requestAnimationFrame(() => { navChangeLockRef.current = false })
+    return ok
+  }, [scheduleViewSync, updatePriceOverlayPosition])
+
   const toggleIndicator = (name) => {
     setIndicators((prev) => (prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]))
   }
@@ -1200,6 +1231,10 @@ export default function ChartCard({
             </div>
             {chartReady && !isLoading && (
               <ChartNavToolbar
+                onGoToDate={handleGoToDate}
+                minDate={dataDateBounds.min}
+                maxDate={dataDateBounds.max}
+                goToDisabled={!candleDataRef.current.length}
                 onZoomOut={handleChartZoomOut}
                 onZoomIn={handleChartZoomIn}
                 onPanLeft={handleChartPanLeft}
