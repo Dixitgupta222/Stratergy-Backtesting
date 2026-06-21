@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react'
 import { tfToSeconds, getCandleOpenTime } from '../utils/chartHelpers'
 import { formatHMS, getMarketSession } from '../utils/marketHours'
+import { getForexPriceDecimals } from '../utils/forexPrecision'
+import { detectSymbolMarket } from '../utils/symbolType'
 
 export { tfToSeconds, getCandleOpenTime } from '../utils/chartHelpers'
 
-/** Format price to match chart axis precision */
-export function formatChartPrice(price) {
+/** Format price with correct pip decimals for forex pairs */
+export function formatChartPrice(price, symbol = null) {
   if (price == null || Number.isNaN(price)) return '—'
   const p = Number(price)
+  const market = symbol ? detectSymbolMarket(symbol) : null
+
+  if (market === 'forex') {
+    return p.toFixed(getForexPriceDecimals(symbol))
+  }
+
   const abs = Math.abs(p)
   let decimals = 2
   if (abs < 0.01) decimals = 6

@@ -1,10 +1,21 @@
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import List
 
 import yfinance as yf
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+from server.dukascopy_forex import fetch_dukascopy_candles, fetch_dukascopy_quotes
+from server.finnhub_forex import (
+    fetch_finnhub_candles,
+    fetch_finnhub_quotes,
+    finnhub_api_key,
+)
+from server.forex_precision import is_metal_symbol, normalize_forex_candles, round_forex_price
 from server.forex_symbols import (
     FOREX_UNIVERSE,
     search_symbols as search_forex_symbols,
@@ -74,70 +85,88 @@ def forex_history(
     symbol: str = Query(..., min_length=1),
     interval: str = Query("1d"),
 ):
-    yf_sym = to_yfinance_forex_symbol(symbol)
-    yf_interval = INTERVAL_MAP.get(interval, "1d")
-    period = PERIOD_BY_INTERVAL.get(interval, "2y")
+    candles: List[dict] = []
+    api_key = finnhub_api_key()
 
-    try:
-        ticker = yf.Ticker(yf_sym)
-        df = ticker.history(period=period, interval=yf_interval, auto_adjust=False)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"yfinance error: {exc}") from exc
-
-    if df is None or df.empty:
-        raise HTTPException(status_code=404, detail=f"No data for {symbol}")
-
-    cutoff = datetime.now(timezone.utc) - timedelta(days=124)
-    candles = []
-    for idx, row in df.iterrows():
-        ts = idx.to_pydatetime()
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        else:
-            ts = ts.astimezone(timezone.utc)
-        if ts < cutoff and interval not in ("1w", "1M"):
-            continue
-        candles.append(
-            {
-                "time": int(ts.timestamp()),
-                "open": float(row["Open"]),
-                "high": float(row["High"]),
-                "low": float(row["Low"]),
-                "close": float(row["Close"]),
-                "volume": float(row.get("Volume", 0) or 0),
-            }
-        )
-
-    if interval == "4h" and candles:
-        candles = _resample_4h(candles)
+    if api_key:
+        try:
+            candles = fetch_finnhub_candles(symbol, interval, api_key)
+        except Exception as exc:
+            print(f"finnhub forex history error: {exc}")
 
     if not candles:
-        raise HTTPException(status_code=404, detail=f"No candles in range for {symbol}")
+        try:
+            candles = fetch_dukascopy_candles(symbol, interval)
+        except Exception as exc:
+            print(f"dukascopy forex history error: {exc}")
 
-    return candles
+    if not candles and not is_metal_symbol(symbol):
+        yf_sym = to_yfinance_forex_symbol(symbol)
+        yf_interval = INTERVAL_MAP.get(interval, "1d")
+        period = PERIOD_BY_INTERVAL.get(interval, "2y")
+        try:
+            ticker = yf.Ticker(yf_sym)
+            df = ticker.history(period=period, interval=yf_interval, auto_adjust=False)
+            if df is not None and not df.empty:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=124)
+                for idx, row in df.iterrows():
+                    ts = idx.to_pydatetime()
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    else:
+                        ts = ts.astimezone(timezone.utc)
+                    if ts < cutoff and interval not in ("1w", "1M"):
+                        continue
+                    candles.append(
+                        {
+                            "time": int(ts.timestamp()),
+                            "open": float(row["Open"]),
+                            "high": float(row["High"]),
+                            "low": float(row["Low"]),
+                            "close": float(row["Close"]),
+                            "volume": float(row.get("Volume", 0) or 0),
+                        }
+                    )
+                if interval == "4h" and candles:
+                    candles = _resample_4h(candles)
+        except Exception as exc:
+            print(f"yahoo forex history error: {exc}")
+
+    if not candles:
+        raise HTTPException(status_code=404, detail=f"No data for {symbol}")
+
+    return normalize_forex_candles(symbol, candles)
 
 
 @app.get("/api/forex/quotes")
 def forex_quotes(symbols: str = Query(..., min_length=1)):
-    sym_list = [s.strip().upper().replace("=X", "") for s in symbols.split(",") if s.strip()]
-    out = {}
-    for sym in sym_list[:40]:
+    sym_list = [s.strip().upper().replace("=X", "") for s in symbols.split(",") if s.strip()][:40]
+    api_key = finnhub_api_key()
+    out: dict = {}
+
+    if api_key:
         try:
-            yf_sym = to_yfinance_forex_symbol(sym)
-            ticker = yf.Ticker(yf_sym)
-            info = ticker.fast_info
-            last = float(getattr(info, "last_price", None) or getattr(info, "previous_close", 0) or 0)
-            prev = float(getattr(info, "previous_close", None) or last or 0)
-            change_pct = ((last - prev) / prev * 100) if prev else 0
-            out[sym] = {
-                "price": last,
-                "changePct": change_pct,
-                "high": float(getattr(info, "day_high", None) or last),
-                "low": float(getattr(info, "day_low", None) or last),
-            }
-        except Exception:
-            out[sym] = {"price": None, "changePct": None, "high": None, "low": None}
-    return out
+            out = fetch_finnhub_quotes(sym_list, api_key)
+            if not any(q.get("price") for q in out.values()):
+                out = {}
+        except Exception as exc:
+            print(f"finnhub forex quotes error: {exc}")
+
+    if not out:
+        try:
+            out = fetch_dukascopy_quotes(sym_list)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Forex quote error: {exc}") from exc
+
+    return {
+        sym: {
+            **q,
+            "price": round_forex_price(sym, q.get("price")),
+            "high": round_forex_price(sym, q.get("high")),
+            "low": round_forex_price(sym, q.get("low")),
+        }
+        for sym, q in out.items()
+    }
 
 
 @app.get("/api/india/symbols")

@@ -1,7 +1,37 @@
 import { tfToSeconds, getCandleOpenTime } from './chartHelpers'
 
-/** Max candles rendered on chart — keeps lightweight-charts fast */
+/** Legacy default bar cap (daily+ timeframes) */
 export const MAX_CHART_CANDLES = 3500
+
+/** Intraday history depth on chart — 15m+ use ~60d; dense TFs use shorter windows */
+export const CHART_HISTORY_DAYS = 60
+
+const CHART_HISTORY_DAYS_BY_TF = {
+  '1m': 10,
+  '5m': 30
+}
+
+/** Absolute bar caps per timeframe — keeps lightweight-charts responsive */
+const DISPLAY_BAR_CAP = {
+  '1m': 15_000,
+  '5m': 9_000,
+  '15m': 6_000,
+  '1h': 1_600,
+  '4h': 500
+}
+
+function getChartHistoryDays(timeframe) {
+  return CHART_HISTORY_DAYS_BY_TF[timeframe] ?? CHART_HISTORY_DAYS
+}
+
+/** Bars to render for a timeframe (time-based window, capped for performance). */
+export function getChartDisplayCandleLimit(timeframe) {
+  const tfSec = tfToSeconds(timeframe)
+  const days = getChartHistoryDays(timeframe)
+  const targetBars = Math.ceil((days * 86_400) / tfSec)
+  const hardCap = DISPLAY_BAR_CAP[timeframe] ?? MAX_CHART_CANDLES
+  return Math.min(targetBars, hardCap)
+}
 
 /** Bars of history shown before the replay start point */
 export const REPLAY_CONTEXT_BARS = 200
@@ -146,10 +176,11 @@ export function shouldUseLinkedFormingCandle(followerTf, leaderTf) {
  * @param {Array} data - full OHLC array
  * @param {number|null} endIndex - exclusive end (replay position); default = all
  */
-export function getChartDisplayData(data, endIndex = null) {
+export function getChartDisplayData(data, endIndex = null, timeframe = '15m') {
   if (!data?.length) return []
+  const limit = getChartDisplayCandleLimit(timeframe)
   const end = endIndex == null ? data.length : Math.max(1, Math.min(endIndex, data.length))
-  const start = Math.max(0, end - MAX_CHART_CANDLES)
+  const start = Math.max(0, end - limit)
   return data.slice(start, end)
 }
 

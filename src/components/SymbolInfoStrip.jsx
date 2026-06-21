@@ -35,15 +35,15 @@ export default function SymbolInfoStrip({ symbol, lastCandle, prevCandle, liveSt
           )}
         </div>
         <div className={`sis-price ${isUp ? 'up' : 'down'}`}>
-          {close != null ? formatChartPrice(close) : '—'}
+          {close != null ? formatChartPrice(close, symbol) : '—'}
           <span className={`sis-change ${isUp ? 'up' : 'down'}`}>{fmtPct(changePct)}</span>
         </div>
       </div>
       <div className="sis-ohlc">
-        <div className="sis-ohlc-item"><span>O</span>{open != null ? formatChartPrice(open) : '—'}</div>
-        <div className="sis-ohlc-item"><span>H</span>{high != null ? formatChartPrice(high) : '—'}</div>
-        <div className="sis-ohlc-item"><span>L</span>{low != null ? formatChartPrice(low) : '—'}</div>
-        <div className="sis-ohlc-item"><span>C</span>{close != null ? formatChartPrice(close) : '—'}</div>
+        <div className="sis-ohlc-item"><span>O</span>{open != null ? formatChartPrice(open, symbol) : '—'}</div>
+        <div className="sis-ohlc-item"><span>H</span>{high != null ? formatChartPrice(high, symbol) : '—'}</div>
+        <div className="sis-ohlc-item"><span>L</span>{low != null ? formatChartPrice(low, symbol) : '—'}</div>
+        <div className="sis-ohlc-item"><span>C</span>{close != null ? formatChartPrice(close, symbol) : '—'}</div>
       </div>
     </div>
   )

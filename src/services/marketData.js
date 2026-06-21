@@ -1,7 +1,8 @@
-import { fetchCryptoHistory } from './historicalData'
+import { fetchCryptoHistory, extendCryptoHistory } from './historicalData'
 import { fetchIndiaHistory } from './indiaMarket'
 import { fetchForexHistory } from './forexMarket'
 import { detectSymbolMarket } from '../utils/symbolType'
+import { BACKTEST_MS, shouldExtendHistoryInBackground } from '../utils/backtestConfig'
 
 export async function fetchMarketHistory(symbol, timeframe, onProgress, market = null, options = {}) {
   const m = market || detectSymbolMarket(symbol)
@@ -16,3 +17,13 @@ export async function fetchMarketHistory(symbol, timeframe, onProgress, market =
   }
   throw new Error(`Unsupported market for ${symbol}`)
 }
+
+export async function extendMarketHistory(symbol, timeframe, existing, onProgress, market = null, options = {}) {
+  const m = market || detectSymbolMarket(symbol)
+  if (m === 'crypto' && shouldExtendHistoryInBackground(timeframe)) {
+    return extendCryptoHistory(symbol, timeframe, existing, BACKTEST_MS, onProgress, options)
+  }
+  return existing
+}
+
+export { shouldExtendHistoryInBackground }

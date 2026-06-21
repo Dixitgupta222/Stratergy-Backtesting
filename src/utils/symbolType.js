@@ -40,7 +40,7 @@ export function marketLabel(market) {
 }
 
 export function supportsLiveStream(market) {
-  return market === 'crypto'
+  return market === 'crypto' || market === 'forex'
 }
 
 export function supportsBacktest(market) {

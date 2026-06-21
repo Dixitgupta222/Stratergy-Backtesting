@@ -42,7 +42,7 @@ export default function Watchlist({ symbols, tickers, onSelect, onAdd, onRemove,
             >
               <div className="wl-symbol">{sym.replace('USDT', '')}</div>
               <div className="wl-right">
-                <div className="wl-price">{t ? formatChartPrice(t.price) : '—'}</div>
+                <div className="wl-price">{t ? formatChartPrice(t.price, sym) : '—'}</div>
                 <div className={`wl-change ${up ? 'up' : 'down'}`}>
                   {t ? `${up ? '+' : ''}${t.changePct.toFixed(2)}%` : '—'}
                 </div>

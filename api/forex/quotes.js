@@ -1,5 +1,8 @@
 const { applyCors, handleOptions } = require('../lib/cors')
 const { toYahooSymbol } = require('../lib/forexSymbols')
+const { fetchFinnhubQuotes, isFinnhubPremiumError } = require('../lib/finnhubForex')
+const { fetchDukascopyQuotes } = require('../lib/dukascopyForex')
+const { normalizeForexQuote } = require('../lib/forexPrecision')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return
@@ -17,46 +20,36 @@ module.exports = async function handler(req, res) {
   }
 
   const symList = raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 40)
-  const yfSymbols = symList.map((s) => toYahooSymbol(s))
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(yfSymbols.join(','))}`
+  const finnhubKey = process.env.FINNHUB_API_KEY
 
   try {
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TradingPanel/1.0)',
-        Accept: 'application/json'
-      }
-    })
+    let out = {}
+    let source = 'dukascopy'
 
-    if (!resp.ok) {
-      res.status(502).json({ detail: `Yahoo Finance HTTP ${resp.status}` })
-      return
-    }
-
-    const json = await resp.json()
-    const quotes = json?.quoteResponse?.result || []
-    const byYf = Object.fromEntries(quotes.map((q) => [q.symbol, q]))
-    const out = {}
-
-    for (let i = 0; i < symList.length; i++) {
-      const sym = symList[i]
-      const yf = yfSymbols[i]
-      const q = byYf[yf]
-      if (!q) {
-        out[sym] = { price: null, changePct: null, high: null, low: null }
-        continue
-      }
-      const last = q.regularMarketPrice ?? q.postMarketPrice ?? q.preMarketPrice ?? null
-      const prev = q.regularMarketPreviousClose ?? last
-      const changePct = prev ? ((last - prev) / prev) * 100 : null
-      out[sym] = {
-        price: last,
-        changePct,
-        high: q.regularMarketDayHigh ?? last,
-        low: q.regularMarketDayLow ?? last
+    if (finnhubKey) {
+      try {
+        const finnhub = await fetchFinnhubQuotes(symList, finnhubKey)
+        const hasData = symList.some((s) => finnhub[s]?.price != null)
+        if (hasData) {
+          out = finnhub
+          source = 'finnhub'
+        }
+      } catch (err) {
+        if (!isFinnhubPremiumError(err)) {
+          console.error('forex/quotes finnhub error:', err.message)
+        }
       }
     }
 
+    if (source !== 'finnhub') {
+      out = await fetchDukascopyQuotes(symList)
+    }
+
+    for (const sym of symList) {
+      out[sym] = normalizeForexQuote(sym, out[sym])
+    }
+
+    res.setHeader('X-Forex-Source', source)
     res.status(200).json(out)
   } catch (err) {
     console.error('forex/quotes error:', err)

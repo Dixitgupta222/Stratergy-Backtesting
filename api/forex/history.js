@@ -1,6 +1,9 @@
 const { applyCors, handleOptions } = require('../lib/cors')
 const { toYahooSymbol } = require('../lib/forexSymbols')
 const { fetchYahooCandles } = require('../lib/yahooChart')
+const { fetchFinnhubCandles, isFinnhubPremiumError } = require('../lib/finnhubForex')
+const { fetchDukascopyCandles } = require('../lib/dukascopyForex')
+const { isMetalSymbol, normalizeForexCandles } = require('../lib/forexPrecision')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return
@@ -20,14 +23,44 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const yfSymbol = toYahooSymbol(symbol)
-    const candles = await fetchYahooCandles(yfSymbol, interval)
+    let candles = []
+    let source = 'dukascopy'
+    const finnhubKey = process.env.FINNHUB_API_KEY
+
+    if (finnhubKey) {
+      try {
+        candles = await fetchFinnhubCandles(symbol, interval, finnhubKey)
+        if (candles.length) source = 'finnhub'
+      } catch (err) {
+        if (!isFinnhubPremiumError(err)) {
+          console.error('forex/history finnhub error:', err.message)
+        }
+      }
+    }
+
+    if (!candles.length) {
+      try {
+        candles = await fetchDukascopyCandles(symbol, interval)
+        source = 'dukascopy'
+      } catch (err) {
+        console.error('forex/history dukascopy error:', err.message)
+      }
+    }
+
+    if (!candles.length && !isMetalSymbol(symbol)) {
+      const yfSymbol = toYahooSymbol(symbol)
+      candles = await fetchYahooCandles(yfSymbol, interval)
+      source = 'yahoo'
+    }
+
+    candles = normalizeForexCandles(symbol, candles)
 
     if (!candles.length) {
       res.status(404).json({ detail: `No data for ${symbol}` })
       return
     }
 
+    res.setHeader('X-Forex-Source', source)
     res.status(200).json(candles)
   } catch (err) {
     console.error('forex/history error:', err)

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createChart } from 'lightweight-charts'
-import { fetchMarketHistory } from '../services/marketData'
+import { fetchMarketHistory, extendMarketHistory, shouldExtendHistoryInBackground } from '../services/marketData'
+import { fetchForexQuotes } from '../services/forexMarket'
 import {
   detectSymbolMarket,
   supportsLiveStream,
@@ -9,6 +10,7 @@ import {
 } from '../utils/symbolType'
 import { formatHistoryRange } from '../utils/backtestConfig'
 import { getChartDisplayData, getReplayChartData, getLinkedReplayChartData, shouldUseLinkedFormingCandle } from '../utils/chartData'
+import { getChartPriceFormat } from '../utils/forexPrecision'
 import { sma, ema, rsi, macd, bollingerBands } from '../utils/indicators'
 import { applyVisibleDateRange, SUB_PANE_HEIGHT } from '../utils/chartHelpers'
 import {
@@ -227,8 +229,8 @@ export default function ChartCard({
     if (endIndex != null && replayStart != null) {
       return getReplayChartData(data, replayStart, endIndex)
     }
-    if (endIndex != null) return getChartDisplayData(data, endIndex)
-    return getChartDisplayData(data)
+    if (endIndex != null) return getChartDisplayData(data, endIndex, timeframe)
+    return getChartDisplayData(data, null, timeframe)
   }, [linkedReplayLeaderId, id, getLeaderReplayApi, timeframe])
 
   const syncLastCandleFromDisplay = useCallback((display) => {
@@ -425,7 +427,10 @@ export default function ChartCard({
       width: initialSize.width,
       height: initialSize.height
     })
-    candleSeriesRef.current = chartRef.current.addCandlestickSeries(CANDLE_OPTS)
+    candleSeriesRef.current = chartRef.current.addCandlestickSeries({
+      ...CANDLE_OPTS,
+      priceFormat: getChartPriceFormat(symbol, detectSymbolMarket(symbol))
+    })
     if (registerChart) registerChart(id, chartRef.current)
     setChartReady(true)
 
@@ -509,6 +514,14 @@ export default function ChartCard({
     chartRef.current.applyOptions(opts)
   }, [theme])
 
+  // Forex pip precision on price scale
+  useEffect(() => {
+    if (!candleSeriesRef.current) return
+    candleSeriesRef.current.applyOptions({
+      priceFormat: getChartPriceFormat(symbol, symbolMarket)
+    })
+  }, [symbol, symbolMarket])
+
   useEffect(() => {
     updatePriceOverlayPosition()
   }, [latestPrice, lastCandle, updatePriceOverlayPosition])
@@ -563,6 +576,42 @@ export default function ChartCard({
     }
   }, [symbolMarket, symbol, timeframe, replayMode, chartReady, dataVersion, pushLiveCandle])
 
+  // Forex live quotes — refresh last candle from Finnhub OANDA (no websocket on free tier)
+  useEffect(() => {
+    if (symbolMarket !== 'forex' || replayMode || !chartReady || !lastCandleRef.current) return
+
+    let cancelled = false
+    const sym = symbol.trim().toUpperCase().replace(/=X$/, '')
+
+    const poll = async () => {
+      try {
+        const quotes = await fetchForexQuotes([sym])
+        if (cancelled || !quotes[sym]?.price || !lastCandleRef.current) return
+        const price = quotes[sym].price
+        const cur = lastCandleRef.current
+        pushLiveCandle({
+          time: cur.time,
+          open: cur.open,
+          high: Math.max(cur.high, price),
+          low: Math.min(cur.low, price),
+          close: price
+        }, { fromKline: true })
+        setLiveStatus('live')
+      } catch {
+        if (!cancelled) setLiveStatus('error')
+      }
+    }
+
+    setLiveStatus('connecting')
+    poll()
+    const id = setInterval(poll, 10_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+      setLiveStatus('idle')
+    }
+  }, [symbolMarket, symbol, replayMode, chartReady, dataVersion, pushLiveCandle])
+
   // Load data once chart is ready
   useEffect(() => {
     if (!chartReady || !candleSeriesRef.current) return
@@ -574,37 +623,68 @@ export default function ChartCard({
     setIsLoading(true)
     setLoadProgress(null)
 
+    const applyLoadedData = (data, { resetView = true } = {}) => {
+      if (cancelled || !candleSeriesRef.current) return
+      candleDataRef.current = data
+      const display = getChartDisplayData(data, null, timeframe)
+      candleSeriesRef.current.setData(display)
+      setHistoryLabel(formatHistoryRange(data, display.length))
+      if (data.length) {
+        const last = data[data.length - 1]
+        const prev = data.length > 1 ? data[data.length - 2] : null
+        lastCandleRef.current = last
+        prevCloseRef.current = prev?.close ?? last.open
+        setLatestPrice(last.close)
+        setLastCandle({ ...last })
+        setPrevCandle(prev)
+        setPriceDirection(last.close >= last.open ? 'up' : 'down')
+      }
+      if (resetView && chartRef.current) {
+        resetChartView(chartRef.current, { scrollToLive: scrollToLiveOnReset(symbolMarket) })
+      }
+      requestAnimationFrame(() => updatePriceOverlayPosition())
+      setDataVersion((v) => v + 1)
+    }
+
     const load = async () => {
+      let showedEarly = false
       try {
         const data = await fetchMarketHistory(
           symbol,
           timeframe,
           (p) => {
-            if (!cancelled) setLoadProgress(p)
+            if (cancelled) return
+            setLoadProgress(p)
+            if (!showedEarly && p.partial?.length) {
+              showedEarly = true
+              applyLoadedData(p.partial, { resetView: true })
+              setIsLoading(false)
+            }
           },
           symbolMarket,
           { signal: controller.signal }
         )
         if (cancelled || !candleSeriesRef.current) return
-        candleDataRef.current = data
-        const display = getChartDisplayData(data)
-        candleSeriesRef.current.setData(display)
-        setHistoryLabel(formatHistoryRange(data, display.length))
-        if (data.length) {
-          const last = data[data.length - 1]
-          const prev = data.length > 1 ? data[data.length - 2] : null
-          lastCandleRef.current = last
-          prevCloseRef.current = prev?.close ?? last.open
-          setLatestPrice(last.close)
-          setLastCandle({ ...last })
-          setPrevCandle(prev)
-          setPriceDirection(last.close >= last.open ? 'up' : 'down')
+        applyLoadedData(data, { resetView: !showedEarly })
+
+        if (shouldExtendHistoryInBackground(timeframe)) {
+          extendMarketHistory(
+            symbol,
+            timeframe,
+            data,
+            (p) => {
+              if (!cancelled) setLoadProgress(p)
+            },
+            symbolMarket,
+            { signal: controller.signal }
+          ).then((extended) => {
+            if (cancelled || !extended?.length || extended.length === data.length) return
+            applyLoadedData(extended, { resetView: false })
+          }).catch((err) => {
+            if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
+            console.warn('Background history extend failed:', err)
+          })
         }
-        if (chartRef.current) {
-          resetChartView(chartRef.current, { scrollToLive: scrollToLiveOnReset(symbolMarket) })
-        }
-        requestAnimationFrame(() => updatePriceOverlayPosition())
-        setDataVersion((v) => v + 1)
       } catch (err) {
         if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
         console.error(err)
@@ -1106,7 +1186,7 @@ export default function ChartCard({
               className={`price-scale-label visible ${priceDirection}`}
               aria-hidden
             >
-              <div className="ps-price">{formatChartPrice(lastCandle?.close ?? latestPrice)}</div>
+              <div className="ps-price">{formatChartPrice(lastCandle?.close ?? latestPrice, symbol)}</div>
               <CandleTimer timeframe={timeframe} variant="scale" market={symbolMarket} />
             </div>
             {chartReady && !isLoading && (

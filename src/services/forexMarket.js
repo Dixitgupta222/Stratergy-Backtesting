@@ -4,7 +4,7 @@ import { filterForexHints } from '../data/forexPairs'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const API = API_BASE ? `${API_BASE}/api/forex` : '/api/forex'
-const HISTORY_TIMEOUT_MS = 25000
+const HISTORY_TIMEOUT_MS = 120000
 
 const historyCache = new Map()
 

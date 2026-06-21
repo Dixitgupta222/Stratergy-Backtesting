@@ -41,15 +41,15 @@ FOREX_UNIVERSE: List[Dict[str, str]] = [
     {"symbol": "USDDKK", "name": "US Dollar / Danish Krone", "base": "USD", "quote": "DKK", "type": "exotic"},
     {"symbol": "USDPLN", "name": "US Dollar / Polish Zloty", "base": "USD", "quote": "PLN", "type": "exotic"},
     {"symbol": "USDBRL", "name": "US Dollar / Brazilian Real", "base": "USD", "quote": "BRL", "type": "exotic"},
-    {"symbol": "XAUUSD", "name": "Gold / US Dollar (COMEX)", "base": "XAU", "quote": "USD", "type": "metal"},
-    {"symbol": "XAGUSD", "name": "Silver / US Dollar (COMEX)", "base": "XAG", "quote": "USD", "type": "metal"},
-    {"symbol": "XPTUSD", "name": "Platinum / US Dollar (COMEX)", "base": "XPT", "quote": "USD", "type": "metal"},
-    {"symbol": "XPDUSD", "name": "Palladium / US Dollar (COMEX)", "base": "XPD", "quote": "USD", "type": "metal"},
+    {"symbol": "XAUUSD", "name": "Gold / US Dollar (Spot)", "base": "XAU", "quote": "USD", "type": "metal"},
+    {"symbol": "XAGUSD", "name": "Silver / US Dollar (Spot)", "base": "XAG", "quote": "USD", "type": "metal"},
+    {"symbol": "XPTUSD", "name": "Platinum / US Dollar (Spot)", "base": "XPT", "quote": "USD", "type": "metal"},
+    {"symbol": "XPDUSD", "name": "Palladium / US Dollar (Spot)", "base": "XPD", "quote": "USD", "type": "metal"},
 ]
 
 TYPE_ORDER = {"major": 0, "metal": 1, "cross": 2, "exotic": 3}
 
-# Yahoo chart API uses COMEX futures for metals (spot XAUUSD=X returns 404).
+# Yahoo chart API fallback for metals when Finnhub key is missing (COMEX futures, not spot).
 YAHOO_METAL_MAP = {
     "XAUUSD": "GC=F",
     "XAGUSD": "SI=F",
