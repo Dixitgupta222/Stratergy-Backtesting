@@ -1,6 +1,6 @@
 /** Forex backtest history windows — keep in sync with lib/dukascopyForex.js */
 export const FOREX_BACKTEST_DAYS = 124
-export const FOREX_1M_BACKTEST_DAYS = 90
+export const FOREX_1M_BACKTEST_DAYS = FOREX_BACKTEST_DAYS
 
 const FOREX_INITIAL_DAYS = {
   '1m': 14,

@@ -17,9 +17,11 @@ module.exports = async function handler(req, res) {
   const symbol = String(req.query.symbol || '').trim()
   const interval = String(req.query.interval || '1d')
   const daysParam = parseInt(String(req.query.days || ''), 10)
+  const offsetParam = parseInt(String(req.query.offsetDays || '0'), 10)
   const days = Number.isFinite(daysParam) && daysParam > 0
     ? Math.min(daysParam, getForexMaxDays(interval))
     : undefined
+  const offsetDays = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0
 
   if (!symbol) {
     res.status(400).json({ detail: 'symbol is required' })
@@ -44,7 +46,7 @@ module.exports = async function handler(req, res) {
 
     if (!candles.length) {
       try {
-        candles = await fetchDukascopyCandles(symbol, interval, { days })
+        candles = await fetchDukascopyCandles(symbol, interval, { days, offsetDays })
         source = 'dukascopy'
       } catch (err) {
         console.error('forex/history dukascopy error:', err.message)

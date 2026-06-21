@@ -33,7 +33,7 @@ import ChartToolbar from './ChartToolbar'
 import ChartSkeleton from './ChartSkeleton'
 import ReplayToolbar from './ReplayToolbar'
 import ChartNavToolbar from './ChartNavToolbar'
-import { zoomChart, panChart, resetChartView, followReplayHead, focusChartOnDate } from '../utils/chartNavigation'
+import { zoomChart, panChart, resetChartView, followReplayHead, focusChartOnDate, focusChartOnBar } from '../utils/chartNavigation'
 import { useTheme } from '../context/ThemeContext'
 import { Maximize2, Minimize2 } from 'lucide-react'
 
@@ -771,14 +771,32 @@ export default function ChartCard({
     syncSubCharts(sharedDateRange)
   }, [sharedDateRange, syncSubCharts])
 
+  const jumpChartToDate = useCallback((dayStartSec) => {
+    if (!chartRef.current || !candleSeriesRef.current || !candleDataRef.current.length) return false
+    const result = focusChartOnDate(
+      chartRef.current,
+      candleDataRef.current,
+      dayStartSec,
+      undefined,
+      timeframe
+    )
+    if (!result?.ok) return false
+    if (result.display?.length) {
+      candleSeriesRef.current.setData(result.display)
+      applyIndicators(result.display)
+    }
+    focusChartOnBar(chartRef.current, result.localIdx)
+    return true
+  }, [timeframe, applyIndicators])
+
   // Jump all charts to a calendar date (TopBar Go to Date)
   useEffect(() => {
-    if (!sharedGoToDate?.time || !chartRef.current || !candleDataRef.current.length) return
+    if (!sharedGoToDate?.time) return
     navChangeLockRef.current = true
-    focusChartOnDate(chartRef.current, candleDataRef.current, sharedGoToDate.time)
+    jumpChartToDate(sharedGoToDate.time)
     scheduleViewSync()
     requestAnimationFrame(() => { navChangeLockRef.current = false })
-  }, [sharedGoToDate, scheduleViewSync])
+  }, [sharedGoToDate, scheduleViewSync, jumpChartToDate])
 
   const dataDateBounds = useMemo(() => {
     const data = candleDataRef.current
@@ -790,16 +808,15 @@ export default function ChartCard({
   }, [dataVersion, historyLabel])
 
   const handleGoToDate = useCallback((_dateStr, dayStartSec) => {
-    if (!chartRef.current || !candleDataRef.current.length) return false
     navChangeLockRef.current = true
-    const ok = focusChartOnDate(chartRef.current, candleDataRef.current, dayStartSec)
+    const ok = jumpChartToDate(dayStartSec)
     if (ok) {
       scheduleViewSync()
       requestAnimationFrame(() => updatePriceOverlayPosition())
     }
     requestAnimationFrame(() => { navChangeLockRef.current = false })
     return ok
-  }, [scheduleViewSync, updatePriceOverlayPosition])
+  }, [jumpChartToDate, scheduleViewSync, updatePriceOverlayPosition])
 
   const toggleIndicator = (name) => {
     setIndicators((prev) => (prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]))

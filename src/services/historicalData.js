@@ -92,12 +92,12 @@ async function fetchKlinePages({
 }
 
 /**
- * Fetch Binance klines paginated back to the timeframe's initial window.
- * Dense intervals (1m, 5m) fetch fewer days first for a fast chart open.
+ * Fetch Binance klines paginated back to the full backtest window.
+ * Dense intervals stream partial data for a fast first paint.
  */
 export async function fetchCryptoHistory(symbol, interval, historyMs, onProgress, { signal } = {}) {
   const sym = symbol.replace('/', '').replace('-', '').toUpperCase()
-  const windowMs = historyMs ?? getInitialFetchMs(interval)
+  const windowMs = historyMs ?? BACKTEST_MS
   const key = cacheKey(sym, interval, windowMs)
   if (cache.has(key)) {
     const cached = cache.get(key)

@@ -7,7 +7,7 @@ export const MAX_CHART_CANDLES = 3500
 export const CHART_HISTORY_DAYS = 60
 
 const CHART_HISTORY_DAYS_BY_TF = {
-  '1m': 30,
+  '1m': 60,
   '5m': 60
 }
 

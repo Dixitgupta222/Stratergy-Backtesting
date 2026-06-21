@@ -1,5 +1,7 @@
 import { readCssVar } from './chartTheme'
 
+import { getChartDisplayCandleLimit } from './chartData'
+
 const ZOOM_IN_FACTOR = 0.82
 const ZOOM_OUT_FACTOR = 1.22
 const PAN_STEP_RATIO = 0.18
@@ -56,12 +58,36 @@ export function findBarIndexForDate(data, dayStartSec) {
   return lo
 }
 
+/** Slice loaded candles centered on a calendar day (for dense-TF display windows). */
+export function getDisplayWindowForDate(data, dayStartSec, timeframe) {
+  if (!data?.length || dayStartSec == null) return null
+  const globalIdx = findBarIndexForDate(data, dayStartSec)
+  if (globalIdx == null) return null
+
+  const limit = getChartDisplayCandleLimit(timeframe)
+  const half = Math.floor(limit / 2)
+  let start = Math.max(0, globalIdx - half)
+  let end = Math.min(data.length, start + limit)
+  if (end - start < limit) start = Math.max(0, end - limit)
+
+  return {
+    display: data.slice(start, end),
+    localIdx: globalIdx - start,
+    globalIdx
+  }
+}
+
 /** Jump chart viewport to a specific calendar date using loaded candle data. */
-export function focusChartOnDate(chart, data, dayStartSec, visibleBars) {
+export function focusChartOnDate(chart, data, dayStartSec, visibleBars, timeframe = null) {
+  if (timeframe) {
+    const window = getDisplayWindowForDate(data, dayStartSec, timeframe)
+    if (!window) return { ok: false }
+    return { ok: true, ...window }
+  }
   const idx = findBarIndexForDate(data, dayStartSec)
-  if (idx == null) return false
+  if (idx == null) return { ok: false }
   focusChartOnBar(chart, idx, visibleBars)
-  return true
+  return { ok: true, localIdx: idx }
 }
 
 export function zoomChart(chart, direction) {

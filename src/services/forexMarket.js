@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 import { filterForexHints } from '../data/forexPairs'
-import { getForexInitialDays, getForexMaxDays, shouldExtendForexHistory } from '../utils/forexBacktestConfig'
+import { getForexMaxDays, shouldExtendForexHistory } from '../utils/forexBacktestConfig'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const API = API_BASE ? `${API_BASE}/api/forex` : '/api/forex'
@@ -10,7 +10,7 @@ const HISTORY_TIMEOUT_MS = 180000
 const historyCache = new Map()
 
 function historyCacheKey(symbol, interval, days) {
-  return `${symbol.trim().toUpperCase()}_${interval}_${days ?? 'full'}`
+  return `v2_${symbol.trim().toUpperCase()}_${interval}_${days ?? 'full'}`
 }
 
 export async function fetchForexSymbols(query = '') {
@@ -30,7 +30,7 @@ export async function fetchForexSymbols(query = '') {
 
 export async function fetchForexHistory(symbol, interval = '1d', onProgress, { signal, days } = {}) {
   const sym = symbol.trim().toUpperCase().replace(/=X$/, '')
-  const fetchDays = days ?? getForexInitialDays(interval) ?? getForexMaxDays(interval)
+  const fetchDays = days ?? getForexMaxDays(interval)
   const key = historyCacheKey(sym, interval, fetchDays)
   if (historyCache.has(key)) {
     const cached = historyCache.get(key)
@@ -47,7 +47,7 @@ export async function fetchForexHistory(symbol, interval = '1d', onProgress, { s
     })
     const data = resp.data || []
     if (data.length) historyCache.set(key, data)
-    onProgress?.({ loaded: 1, total: 1, candles: data.length, cached: false, partial: data })
+    onProgress?.({ loaded: 1, total: 1, candles: data.length, cached: false })
     return data
   } catch (e) {
     if (axios.isCancel(e) || e.code === 'ERR_CANCELED') throw e
@@ -79,7 +79,6 @@ export async function fetchForexHistory(symbol, interval = '1d', onProgress, { s
   }
 }
 
-/** Load full backtest window after fast initial fetch (1m → 90d, 5m → 90d). */
 export async function extendForexHistory(symbol, interval, existing, onProgress, { signal } = {}) {
   const sym = symbol.trim().toUpperCase().replace(/=X$/, '')
   const maxDays = getForexMaxDays(interval)
@@ -93,9 +92,7 @@ export async function extendForexHistory(symbol, interval, existing, onProgress,
     return existing
   }
 
-  const data = await fetchForexHistory(sym, interval, onProgress, { signal, days: maxDays })
-  historyCache.set(fullKey, data)
-  return data
+  return fetchForexHistory(sym, interval, onProgress, { signal, days: maxDays })
 }
 
 export { shouldExtendForexHistory }

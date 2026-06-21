@@ -57,7 +57,7 @@ export default function ReplayToolbar({
         </button>
       </div>
 
-      {!pickMode && (
+      {/* {!pickMode && (
         <div className="replay-bottom-bar">
           <span className="replay-date-mini">{currentLabel}</span>
           <input
@@ -71,7 +71,7 @@ export default function ReplayToolbar({
           />
           <span className="replay-pct">{Math.round(progress)}%</span>
         </div>
-      )}
+      )} */}
     </>
   )
 }
