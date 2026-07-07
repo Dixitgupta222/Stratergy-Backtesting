@@ -4,6 +4,11 @@ const { fetchYahooCandles } = require('../../lib/yahooChart')
 const { fetchFinnhubCandles, isFinnhubPremiumError } = require('../../lib/finnhubForex')
 const { fetchDukascopyCandles, getForexMaxDays } = require('../../lib/dukascopyForex')
 const { isMetalSymbol, normalizeForexCandles } = require('../../lib/forexPrecision')
+const {
+  isPepperstoneConfigured,
+  isPepperstoneMetal,
+  fetchPepperstoneCandles
+} = require('../../lib/pepperstoneForex')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return
@@ -32,8 +37,18 @@ module.exports = async function handler(req, res) {
     let candles = []
     let source = 'dukascopy'
     const finnhubKey = process.env.FINNHUB_API_KEY
+    const usePepperstone = isPepperstoneMetal(symbol) && isPepperstoneConfigured()
 
-    if (finnhubKey) {
+    if (usePepperstone) {
+      try {
+        candles = await fetchPepperstoneCandles(symbol, interval, { days, offsetDays })
+        if (candles.length) source = 'pepperstone'
+      } catch (err) {
+        console.error('forex/history pepperstone error:', err.message)
+      }
+    }
+
+    if (!candles.length && finnhubKey && !isMetalSymbol(symbol)) {
       try {
         candles = await fetchFinnhubCandles(symbol, interval, finnhubKey)
         if (candles.length) source = 'finnhub'
@@ -50,6 +65,16 @@ module.exports = async function handler(req, res) {
         source = 'dukascopy'
       } catch (err) {
         console.error('forex/history dukascopy error:', err.message)
+      }
+    }
+
+    if (!candles.length && isMetalSymbol(symbol)) {
+      try {
+        const yfSymbol = toYahooSymbol(symbol)
+        candles = await fetchYahooCandles(yfSymbol, interval)
+        if (candles.length) source = 'yahoo-futures'
+      } catch (err) {
+        console.error('forex/history yahoo metal fallback error:', err.message)
       }
     }
 

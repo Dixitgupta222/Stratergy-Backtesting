@@ -3,6 +3,10 @@ const { toYahooSymbol } = require('../../lib/forexSymbols')
 const { fetchFinnhubQuotes, isFinnhubPremiumError } = require('../../lib/finnhubForex')
 const { fetchDukascopyQuotes } = require('../../lib/dukascopyForex')
 const { normalizeForexQuote } = require('../../lib/forexPrecision')
+const {
+  isPepperstoneConfigured,
+  fetchPepperstoneQuotes
+} = require('../../lib/pepperstoneForex')
 
 module.exports = async function handler(req, res) {
   if (handleOptions(req, res)) return
@@ -25,14 +29,29 @@ module.exports = async function handler(req, res) {
   try {
     let out = {}
     let source = 'dukascopy'
+    const metalSymbols = symList.filter((s) => /^XAU|^XAG|^XPT|^XPD/.test(s))
+    const otherSymbols = symList.filter((s) => !metalSymbols.includes(s))
 
-    if (finnhubKey) {
+    if (isPepperstoneConfigured() && metalSymbols.length) {
       try {
-        const finnhub = await fetchFinnhubQuotes(symList, finnhubKey)
-        const hasData = symList.some((s) => finnhub[s]?.price != null)
+        const pepperstone = await fetchPepperstoneQuotes(metalSymbols)
+        const hasData = metalSymbols.some((s) => pepperstone[s]?.price != null)
         if (hasData) {
-          out = finnhub
-          source = 'finnhub'
+          out = { ...out, ...pepperstone }
+          source = 'pepperstone'
+        }
+      } catch (err) {
+        console.error('forex/quotes pepperstone error:', err.message)
+      }
+    }
+
+    if (finnhubKey && otherSymbols.length) {
+      try {
+        const finnhub = await fetchFinnhubQuotes(otherSymbols, finnhubKey)
+        const hasData = otherSymbols.some((s) => finnhub[s]?.price != null)
+        if (hasData) {
+          out = { ...out, ...finnhub }
+          if (source !== 'pepperstone') source = 'finnhub'
         }
       } catch (err) {
         if (!isFinnhubPremiumError(err)) {
@@ -41,8 +60,10 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    if (source !== 'finnhub') {
-      out = await fetchDukascopyQuotes(symList)
+    const needsDukascopy = symList.filter((s) => out[s]?.price == null)
+    if (needsDukascopy.length) {
+      const dukascopy = await fetchDukascopyQuotes(needsDukascopy)
+      out = { ...out, ...dukascopy }
     }
 
     for (const sym of symList) {

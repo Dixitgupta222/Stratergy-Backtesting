@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from server.dukascopy_forex import fetch_dukascopy_candles, fetch_dukascopy_quotes
+from server.pepperstone_forex import fetch_pepperstone_candles, fetch_pepperstone_quotes, pepperstone_configured
 from server.finnhub_forex import (
     fetch_finnhub_candles,
     fetch_finnhub_quotes,
@@ -88,7 +89,13 @@ def forex_history(
     candles: List[dict] = []
     api_key = finnhub_api_key()
 
-    if api_key:
+    if is_metal_symbol(symbol) and pepperstone_configured():
+        try:
+            candles = fetch_pepperstone_candles(symbol, interval)
+        except Exception as exc:
+            print(f"pepperstone forex history error: {exc}")
+
+    if not candles and api_key and not is_metal_symbol(symbol):
         try:
             candles = fetch_finnhub_candles(symbol, interval, api_key)
         except Exception as exc:
@@ -100,7 +107,7 @@ def forex_history(
         except Exception as exc:
             print(f"dukascopy forex history error: {exc}")
 
-    if not candles and not is_metal_symbol(symbol):
+    if not candles:
         yf_sym = to_yfinance_forex_symbol(symbol)
         yf_interval = INTERVAL_MAP.get(interval, "1d")
         period = PERIOD_BY_INTERVAL.get(interval, "2y")
@@ -143,20 +150,33 @@ def forex_quotes(symbols: str = Query(..., min_length=1)):
     sym_list = [s.strip().upper().replace("=X", "") for s in symbols.split(",") if s.strip()][:40]
     api_key = finnhub_api_key()
     out: dict = {}
+    metals = [s for s in sym_list if is_metal_symbol(s)]
+    others = [s for s in sym_list if s not in metals]
 
-    if api_key:
+    if metals and pepperstone_configured():
         try:
-            out = fetch_finnhub_quotes(sym_list, api_key)
-            if not any(q.get("price") for q in out.values()):
-                out = {}
+            pepperstone = fetch_pepperstone_quotes(metals)
+            if any(q.get("price") for q in pepperstone.values()):
+                out.update(pepperstone)
+        except Exception as exc:
+            print(f"pepperstone forex quotes error: {exc}")
+
+    if api_key and others:
+        try:
+            finnhub = fetch_finnhub_quotes(others, api_key)
+            if any(q.get("price") for q in finnhub.values()):
+                out.update(finnhub)
         except Exception as exc:
             print(f"finnhub forex quotes error: {exc}")
 
-    if not out:
+    missing = [s for s in sym_list if out.get(s, {}).get("price") is None]
+    if missing:
         try:
-            out = fetch_dukascopy_quotes(sym_list)
+            dukascopy = fetch_dukascopy_quotes(missing)
+            out.update(dukascopy)
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Forex quote error: {exc}") from exc
+            if not out:
+                raise HTTPException(status_code=502, detail=f"Forex quote error: {exc}") from exc
 
     return {
         sym: {
